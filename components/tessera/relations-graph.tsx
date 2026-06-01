@@ -270,9 +270,12 @@ export function RelationsGraph() {
                     strokeWidth={char.isDashed ? 0.3 : 0.5}
                     strokeDasharray={char.isDashed ? "1,0.5" : undefined}
                     className="transition-transform duration-200"
-                    style={{ 
+                    style={{
                       transform: isHovered ? "scale(1.15)" : "scale(1)",
                       transformOrigin: "center",
+                      // Anchor the scale to the circle's OWN box, not the SVG viewBox
+                      // origin — otherwise the node jumps and flickers on hover.
+                      transformBox: "fill-box",
                     }}
                   />
                   

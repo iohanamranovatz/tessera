@@ -3,8 +3,9 @@
 import { useState } from "react"
 import { TopBar } from "@/components/tessera/top-bar"
 import { TabNavigation } from "@/components/tessera/tab-navigation"
-import { CollageBoard } from "@/components/tessera/collage-board"
+import { CollageBoard } from "@/components/collage/CollageBoard"
 import { RelationsGraph } from "@/components/tessera/relations-graph"
+import { BOOK_ID } from "@/data/karamazov"
 
 type Tab = "collage" | "characters" | "relations"
 
@@ -16,7 +17,7 @@ export default function TesseraPage() {
       <TopBar />
       <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
       
-      {activeTab === "collage" && <CollageBoard />}
+      {activeTab === "collage" && <CollageBoard bookId={BOOK_ID} />}
       
       {activeTab === "characters" && (
         <main className="flex-1 flex items-center justify-center bg-card">

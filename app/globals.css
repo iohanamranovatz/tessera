@@ -39,9 +39,9 @@
 }
 
 @theme inline {
-  --font-sans: 'Playfair Display', 'Georgia', serif;
-  --font-serif: 'Playfair Display', 'Georgia', serif;
-  --font-mono: 'Georgia', serif;
+  --font-sans: var(--font-lora), 'Georgia', serif;
+  --font-serif: var(--font-playfair), 'Georgia', serif;
+  --font-mono: var(--font-lora), 'Georgia', serif;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);

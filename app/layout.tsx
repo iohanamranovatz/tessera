@@ -1,11 +1,17 @@
 import type { Metadata } from 'next'
-import { Playfair_Display } from 'next/font/google'
+import { Playfair_Display, Lora } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 
-const playfair = Playfair_Display({ 
+const playfair = Playfair_Display({
   subsets: ["latin"],
   variable: '--font-playfair',
+  display: 'swap',
+})
+
+const lora = Lora({
+  subsets: ["latin"],
+  variable: '--font-lora',
   display: 'swap',
 })
 
@@ -38,8 +44,8 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={`${playfair.variable} bg-background`}>
-      <body className="font-serif antialiased min-h-screen">
+    <html lang="en" className={`${playfair.variable} ${lora.variable} bg-background`}>
+      <body className="font-sans antialiased min-h-screen">
         {children}
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
