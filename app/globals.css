@@ -1,0 +1,122 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+/* Tessera - Dark Academia Theme */
+:root {
+  --background: #1a1410;
+  --foreground: #e8dcc4;
+  --card: #221a13;
+  --card-foreground: #e8dcc4;
+  --popover: #221a13;
+  --popover-foreground: #e8dcc4;
+  --primary: #c9b896;
+  --primary-foreground: #0a0604;
+  --secondary: #0a0604;
+  --secondary-foreground: #e8dcc4;
+  --muted: #3a2818;
+  --muted-foreground: #8a7656;
+  --accent: #0f0a06;
+  --accent-foreground: #e8dcc4;
+  --destructive: #8a3020;
+  --destructive-foreground: #e8dcc4;
+  --border: #3a2818;
+  --input: #3a2818;
+  --ring: #c9b896;
+  --radius: 0.25rem;
+  
+  /* Character glow colors */
+  --glow-dmitri: #8a3020;
+  --glow-ivan: #2a4a5a;
+  --glow-alyosha: #8a6a28;
+  --glow-fyodor: #3a2820;
+  
+  /* Additional theme colors */
+  --tertiary: #6a5836;
+  --topbar: #0f0a06;
+  --topbar-border: #2a2017;
+}
+
+@theme inline {
+  --font-sans: 'Playfair Display', 'Georgia', serif;
+  --font-serif: 'Playfair Display', 'Georgia', serif;
+  --font-mono: 'Georgia', serif;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-tertiary: var(--tertiary);
+  --color-topbar: var(--topbar);
+  --color-topbar-border: var(--topbar-border);
+  --color-glow-dmitri: var(--glow-dmitri);
+  --color-glow-ivan: var(--glow-ivan);
+  --color-glow-alyosha: var(--glow-alyosha);
+  --color-glow-fyodor: var(--glow-fyodor);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Paper texture effect */
+.paper-texture {
+  background-image: 
+    radial-gradient(circle at 25% 25%, rgba(232, 220, 196, 0.02) 1px, transparent 1px),
+    radial-gradient(circle at 75% 75%, rgba(232, 220, 196, 0.02) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* Dotted canvas texture */
+.dotted-texture {
+  background-image: radial-gradient(circle, rgba(138, 118, 86, 0.15) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+
+/* Polaroid card styling */
+.polaroid {
+  background: linear-gradient(135deg, #f5f0e6 0%, #e8dcc4 100%);
+  padding: 8px 8px 24px 8px;
+  box-shadow: 
+    0 4px 12px rgba(0, 0, 0, 0.4),
+    0 2px 4px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+/* Character glow effects */
+.glow-dmitri {
+  box-shadow: 0 0 30px 8px rgba(138, 48, 32, 0.5), 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+.glow-ivan {
+  box-shadow: 0 0 30px 8px rgba(42, 74, 90, 0.5), 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+.glow-alyosha {
+  box-shadow: 0 0 30px 8px rgba(138, 106, 40, 0.5), 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+.glow-fyodor {
+  box-shadow: 0 0 30px 8px rgba(58, 40, 32, 0.5), 0 4px 12px rgba(0, 0, 0, 0.4);
+}
