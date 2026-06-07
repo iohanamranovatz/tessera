@@ -14,14 +14,15 @@
  *   - all other fragments dim out (reduced brightness + saturation)
  */
 
-import { useCharacter } from "@/hooks/use-tessera-data"
 import { useCollage } from "@/context/CollageContext"
-import type { Fragment as FragmentModel } from "@/types"
+import type { Character, Fragment as FragmentModel } from "@/types"
 import { FragmentContent } from "./FragmentContent"
 import { cn } from "@/lib/utils"
 
 interface FragmentProps {
   fragment: FragmentModel
+  /** The owning character (passed down from the board to avoid per-card fetches). */
+  character?: Character
   /** Stacking order so cards overlap predictably. */
   zIndex?: number
 }
@@ -32,8 +33,7 @@ const sizeClasses: Record<FragmentModel["size"], string> = {
   large: "w-32 h-36 sm:w-40 sm:h-44 md:w-44 md:h-48",
 }
 
-export function Fragment({ fragment, zIndex = 1 }: FragmentProps) {
-  const character = useCharacter(fragment.characterId)
+export function Fragment({ fragment, character, zIndex = 1 }: FragmentProps) {
   const { hoveredCharacterId, setHoveredCharacterId } = useCollage()
 
   const color = character?.color ?? "#8a7656"

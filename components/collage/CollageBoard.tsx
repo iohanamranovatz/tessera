@@ -12,11 +12,13 @@
  * dim/brighten without prop drilling.
  */
 
-import { useState } from "react"
-import { useFragments, useCharacter } from "@/hooks/use-tessera-data"
+import { useMemo, useState } from "react"
+import { Plus } from "lucide-react"
+import { useFragments, useCharacters } from "@/hooks/use-tessera-data"
 import { CollageProvider, useCollage } from "@/context/CollageContext"
 import { Fragment } from "./Fragment"
 import { CharacterTooltip } from "./CharacterTooltip"
+import { AddFragmentDialog } from "./AddFragmentDialog"
 
 interface CollageBoardProps {
   bookId: string
@@ -32,11 +34,23 @@ export function CollageBoard({ bookId }: CollageBoardProps) {
 }
 
 function CollageBoardInner({ bookId }: CollageBoardProps) {
-  const fragments = useFragments(bookId)
+  const { data: fragments, loading: fragmentsLoading, refetch } = useFragments(bookId)
+  const { data: characters, loading: charactersLoading } = useCharacters(bookId)
   const { hoveredCharacterId } = useCollage()
-  const hoveredCharacter = useCharacter(hoveredCharacterId ?? undefined)
 
   const [cursor, setCursor] = useState({ x: 0, y: 0 })
+  const [addOpen, setAddOpen] = useState(false)
+
+  // Index characters by id so each fragment + the tooltip can look theirs up.
+  const charactersById = useMemo(
+    () => new Map(characters.map((c) => [c.id, c])),
+    [characters],
+  )
+  const hoveredCharacter = hoveredCharacterId
+    ? charactersById.get(hoveredCharacterId)
+    : undefined
+
+  const loading = fragmentsLoading || charactersLoading
 
   return (
     <main
@@ -60,22 +74,57 @@ function CollageBoardInner({ bookId }: CollageBoardProps) {
         </span>
       </div>
 
+      {/* While the database is loading */}
+      {loading && (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <p className="animate-pulse font-serif italic text-muted-foreground">
+            se încarcă fragmentele…
+          </p>
+        </div>
+      )}
+
       {/* Fragments laid out absolutely */}
       <div className="absolute inset-0">
         {fragments.map((fragment, index) => (
-          <Fragment key={fragment.id} fragment={fragment} zIndex={index + 1} />
+          <Fragment
+            key={fragment.id}
+            fragment={fragment}
+            character={charactersById.get(fragment.characterId)}
+            zIndex={index + 1}
+          />
         ))}
       </div>
 
       {/* Bottom caption */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2">
-        <p className="text-center font-serif text-xs text-muted-foreground/70">
-          {fragments.length} fragments · hover for character details
-        </p>
-      </div>
+      {!loading && (
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2">
+          <p className="text-center font-serif text-xs text-muted-foreground/70">
+            {fragments.length} fragments · hover for character details
+          </p>
+        </div>
+      )}
 
       {/* Cursor-following tooltip for the hovered character */}
       {hoveredCharacter && <CharacterTooltip character={hoveredCharacter} position={cursor} />}
+
+      {/* Floating "add fragment" button */}
+      <button
+        onClick={() => setAddOpen(true)}
+        aria-label="Adaugă fragment"
+        className="absolute bottom-6 right-6 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-colors hover:bg-primary/90"
+      >
+        <Plus className="h-5 w-5" />
+      </button>
+
+      {/* Add-fragment modal */}
+      <AddFragmentDialog
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        bookId={bookId}
+        characters={characters}
+        existingFragments={fragments}
+        onAdded={refetch}
+      />
     </main>
   )
 }
