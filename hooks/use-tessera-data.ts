@@ -12,7 +12,7 @@
 
 import { useCallback, useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase/client"
-import type { Book, Character, Fragment } from "@/types"
+import type { Book, Character, Fragment, Relationship } from "@/types"
 
 // --- row -> model mappers ---------------------------------------------------
 
@@ -57,6 +57,21 @@ function mapFragment(row: Record<string, any>): Fragment {
   }
 }
 
+function mapRelationship(row: Record<string, any>): Relationship {
+  return {
+    id: row.id,
+    bookId: row.book_id,
+    fromCharacterId: row.from_character_id,
+    toCharacterId: row.to_character_id,
+    type: row.type,
+    label: row.label ?? undefined,
+    description: row.description ?? undefined,
+    strength: row.strength,
+    isSecret: row.is_secret ?? undefined,
+    revealedInChapter: row.revealed_in_chapter ?? undefined,
+  }
+}
+
 // --- hooks ------------------------------------------------------------------
 
 /** Loads a single book by id. */
@@ -86,22 +101,46 @@ export function useBook(bookId: string) {
   return { data, loading }
 }
 
-/** Loads all characters for a book. */
+/** Loads all characters for a book. Returns `refetch` to reload on demand. */
 export function useCharacters(bookId: string) {
   const [data, setData] = useState<Character[]>([])
+  const [loading, setLoading] = useState(true)
+
+  // Reusable loader so we can both run it on mount AND call it again after edits.
+  const load = useCallback(async () => {
+    setLoading(true)
+    const { data, error } = await supabase
+      .from("characters")
+      .select("*")
+      .eq("book_id", bookId)
+    if (error) console.error("useCharacters:", error.message)
+    setData((data ?? []).map(mapCharacter))
+    setLoading(false)
+  }, [bookId])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  return { data, loading, refetch: load }
+}
+
+/** Loads all relationships for a book. */
+export function useRelationships(bookId: string) {
+  const [data, setData] = useState<Relationship[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     let active = true
     setLoading(true)
     supabase
-      .from("characters")
+      .from("relationships")
       .select("*")
       .eq("book_id", bookId)
       .then(({ data, error }) => {
         if (!active) return
-        if (error) console.error("useCharacters:", error.message)
-        setData((data ?? []).map(mapCharacter))
+        if (error) console.error("useRelationships:", error.message)
+        setData((data ?? []).map(mapRelationship))
         setLoading(false)
       })
     return () => {
@@ -151,5 +190,46 @@ export async function createFragment(fragment: Fragment): Promise<void> {
     position: fragment.position,
     size: fragment.size,
   })
+  if (error) throw new Error(error.message)
+}
+
+/**
+ * Inserts a new character into Supabase.
+ * Throws on error so the caller can show a message.
+ */
+export async function createCharacter(character: Character): Promise<void> {
+  const { error } = await supabase.from("characters").insert({
+    id: character.id,
+    book_id: character.bookId,
+    name: character.name,
+    nicknames: character.nicknames,
+    description: character.description,
+    tags: character.tags,
+    color: character.color,
+    status: character.status,
+    appears_in_chapter: character.appearsInChapter,
+    avatar_type: character.avatarType ?? null,
+  })
+  if (error) throw new Error(error.message)
+}
+
+/**
+ * Updates an existing character (matched by id).
+ * Throws on error so the caller can show a message.
+ */
+export async function updateCharacter(character: Character): Promise<void> {
+  const { error } = await supabase
+    .from("characters")
+    .update({
+      name: character.name,
+      nicknames: character.nicknames,
+      description: character.description,
+      tags: character.tags,
+      color: character.color,
+      status: character.status,
+      appears_in_chapter: character.appearsInChapter,
+      avatar_type: character.avatarType ?? null,
+    })
+    .eq("id", character.id)
   if (error) throw new Error(error.message)
 }
