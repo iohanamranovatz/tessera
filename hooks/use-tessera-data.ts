@@ -101,6 +101,32 @@ export function useBook(bookId: string) {
   return { data, loading }
 }
 
+/** Loads every book in the library (for the book switcher). */
+export function useBooks() {
+  const [data, setData] = useState<Book[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let active = true
+    setLoading(true)
+    supabase
+      .from("books")
+      .select("*")
+      .order("title")
+      .then(({ data, error }) => {
+        if (!active) return
+        if (error) console.error("useBooks:", error.message)
+        setData((data ?? []).map(mapBook))
+        setLoading(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [])
+
+  return { data, loading }
+}
+
 /** Loads all characters for a book. Returns `refetch` to reload on demand. */
 export function useCharacters(bookId: string) {
   const [data, setData] = useState<Character[]>([])
