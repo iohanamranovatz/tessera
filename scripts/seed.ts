@@ -12,6 +12,8 @@ import { readFileSync } from "node:fs"
 import { resolve } from "node:path"
 import { createClient } from "@supabase/supabase-js"
 import { karamazovData } from "../data/karamazov"
+import { maitreyiData } from "../data/maitreyi"
+import type { Book, Character, Relationship, Fragment } from "../types"
 
 // --- load .env.local manually (this script runs outside Next.js) ------------
 function loadEnv(): Record<string, string> {
@@ -33,8 +35,17 @@ if (!url || !key) {
 
 const supabase = createClient(url, key)
 
-async function main() {
-  const { book, characters, relationships, fragments } = karamazovData
+/** One bundled dataset (book + its characters/relationships/fragments). */
+interface BookData {
+  book: Book
+  characters: Character[]
+  relationships: Relationship[]
+  fragments: Fragment[]
+}
+
+/** Upsert a single book and all of its related rows into Supabase. */
+async function seedBook({ book, characters, relationships, fragments }: BookData) {
+  console.log(`\n→ ${book.title}`)
 
   // Order matters: books first (characters/relationships/fragments reference it).
   let res = await supabase.from("books").upsert({
@@ -48,7 +59,7 @@ async function main() {
     cover_color: book.coverColor,
   })
   if (res.error) throw res.error
-  console.log("✓ book")
+  console.log("  ✓ book")
 
   res = await supabase.from("characters").upsert(
     characters.map((c) => ({
@@ -65,7 +76,7 @@ async function main() {
     })),
   )
   if (res.error) throw res.error
-  console.log(`✓ ${characters.length} characters`)
+  console.log(`  ✓ ${characters.length} characters`)
 
   res = await supabase.from("relationships").upsert(
     relationships.map((r) => ({
@@ -82,7 +93,7 @@ async function main() {
     })),
   )
   if (res.error) throw res.error
-  console.log(`✓ ${relationships.length} relationships`)
+  console.log(`  ✓ ${relationships.length} relationships`)
 
   res = await supabase.from("fragments").upsert(
     fragments.map((f) => ({
@@ -97,9 +108,15 @@ async function main() {
     })),
   )
   if (res.error) throw res.error
-  console.log(`✓ ${fragments.length} fragments`)
+  console.log(`  ✓ ${fragments.length} fragments`)
+}
 
-  console.log("Seed complete ✅")
+async function main() {
+  // Seed every reference book. Add more datasets to this list as they appear.
+  await seedBook(karamazovData)
+  await seedBook(maitreyiData)
+
+  console.log("\nSeed complete ✅")
 }
 
 main().catch((e) => {

@@ -22,7 +22,7 @@ interface TabNavigationProps {
 const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: "collage", label: "collage", icon: <Grid3X3 className="h-3.5 w-3.5" /> },
   { id: "characters", label: "characters", icon: <Users className="h-3.5 w-3.5" /> },
-  { id: "relations", label: "relations", icon: <GitBranch className="h-3.5 w-3.5" /> },
+  { id: "relations", label: "relationships", icon: <GitBranch className="h-3.5 w-3.5" /> },
 ]
 
 export function TabNavigation({ activeTab, onTabChange }: TabNavigationProps) {

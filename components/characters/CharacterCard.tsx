@@ -59,7 +59,7 @@ export function CharacterCard({
       {isSpoiler && (
         <p className="flex items-center gap-1.5 text-xs italic text-destructive">
           <AlertTriangle className="h-3.5 w-3.5" />
-          apare în cap. {character.appearsInChapter} · risc spoiler
+          appears in ch. {character.appearsInChapter} · spoiler risk
         </p>
       )}
 

@@ -1,14 +1,9 @@
-"use client"
+import { redirect } from "next/navigation"
 
-import { useRouter } from "next/navigation"
-import { OnboardingFlow } from "@/components/tessera/onboarding/onboarding-flow"
-
+/**
+ * /onboarding nu are conținut propriu — e doar poarta de intrare în flow.
+ * Trimitem userul la primul ecran real: /onboarding/title.
+ */
 export default function OnboardingPage() {
-  const router = useRouter()
-
-  const handleComplete = () => {
-    router.push("/")
-  }
-
-  return <OnboardingFlow onComplete={handleComplete} />
+  redirect("/onboarding/title")
 }

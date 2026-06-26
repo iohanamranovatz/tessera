@@ -13,7 +13,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { ChevronDown, Check } from "lucide-react"
+import { ChevronDown, Check, Plus, Library } from "lucide-react"
 import { useBooks } from "@/hooks/use-tessera-data"
 import type { Tab } from "./TabNavigation"
 
@@ -72,7 +72,7 @@ export function BookSwitcher({ currentBookId, currentTitle, activeTab }: BookSwi
         <div className="absolute left-0 z-50 mt-1 w-64 overflow-hidden rounded border border-border bg-popover shadow-xl">
           {books.length === 0 && (
             <p className="px-3 py-2 font-serif text-xs italic text-muted-foreground">
-              nicio carte găsită…
+              no books found…
             </p>
           )}
           {books.map((book) => (
@@ -88,6 +88,30 @@ export function BookSwitcher({ currentBookId, currentTitle, activeTab }: BookSwi
               {book.id === currentBookId && <Check className="h-3.5 w-3.5 text-primary" />}
             </button>
           ))}
+
+          {/* Footer: library + add-new actions */}
+          <div className="border-t border-border">
+            <button
+              onClick={() => {
+                setOpen(false)
+                router.push("/library")
+              }}
+              className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-secondary/60"
+            >
+              <Library className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="font-serif text-sm italic text-foreground">library</span>
+            </button>
+            <button
+              onClick={() => {
+                setOpen(false)
+                router.push("/onboarding")
+              }}
+              className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-secondary/60"
+            >
+              <Plus className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="font-serif text-sm italic text-foreground">new book</span>
+            </button>
+          </div>
         </div>
       )}
     </div>

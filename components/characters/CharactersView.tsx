@@ -82,27 +82,27 @@ export function CharactersView({ bookId }: CharactersViewProps) {
       <div className="mx-auto w-full max-w-4xl px-4 py-6 sm:px-6">
         {/* Header + add button */}
         <div className="mb-6 flex items-center justify-between">
-          <h2 className="font-serif text-2xl italic text-foreground">Personaje</h2>
+          <h2 className="font-serif text-2xl italic text-foreground">Characters</h2>
           <button
             onClick={() => setCreating(true)}
             className="flex items-center gap-1.5 rounded border border-primary/50 px-3 py-1.5 font-serif text-sm italic text-primary transition-colors hover:bg-primary hover:text-primary-foreground"
           >
             <Plus className="h-4 w-4" />
-            personaj nou
+            new character
           </button>
         </div>
 
         {/* Loading state */}
         {loading && (
           <p className="animate-pulse py-12 text-center font-serif italic text-muted-foreground">
-            se încarcă personajele…
+            loading characters…
           </p>
         )}
 
         {/* Empty state */}
         {!loading && characters.length === 0 && (
           <p className="py-12 text-center font-serif italic text-muted-foreground">
-            niciun personaj încă — adaugă primul.
+            no characters yet — add the first one.
           </p>
         )}
 

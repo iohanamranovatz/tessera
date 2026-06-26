@@ -78,7 +78,7 @@ function CollageBoardInner({ bookId }: CollageBoardProps) {
       {loading && (
         <div className="absolute inset-0 flex items-center justify-center">
           <p className="animate-pulse font-serif italic text-muted-foreground">
-            se încarcă fragmentele…
+            loading fragments…
           </p>
         </div>
       )}
@@ -110,7 +110,7 @@ function CollageBoardInner({ bookId }: CollageBoardProps) {
       {/* Floating "add fragment" button */}
       <button
         onClick={() => setAddOpen(true)}
-        aria-label="Adaugă fragment"
+        aria-label="Add fragment"
         className="absolute bottom-6 right-6 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-colors hover:bg-primary/90"
       >
         <Plus className="h-5 w-5" />

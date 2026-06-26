@@ -220,6 +220,24 @@ export async function createFragment(fragment: Fragment): Promise<void> {
 }
 
 /**
+ * Inserts a new book into Supabase.
+ * Throws on error so the caller can show a message.
+ */
+export async function createBook(book: Book): Promise<void> {
+  const { error } = await supabase.from("books").insert({
+    id: book.id,
+    title: book.title,
+    author: book.author,
+    year: book.year,
+    language: book.language,
+    total_chapters: book.totalChapters,
+    current_chapter: book.currentChapter,
+    cover_color: book.coverColor,
+  })
+  if (error) throw new Error(error.message)
+}
+
+/**
  * Inserts a new character into Supabase.
  * Throws on error so the caller can show a message.
  */

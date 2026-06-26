@@ -52,14 +52,14 @@ const KARAMAZOV_LAYOUT: Record<
   string,
   { x: number; y: number; filled: boolean; dashed?: boolean; size?: number; subtitle?: string }
 > = {
-  "char-fyodor": { x: 360, y: 40, filled: true, subtitle: "tatăl" },
+  "char-fyodor": { x: 360, y: 40, filled: true, subtitle: "the father" },
   "char-dmitri": { x: 380, y: 280, filled: true, size: 1.25, subtitle: "Mitya" },
   "char-ivan": { x: 660, y: 200, filled: true, subtitle: "Vanya" },
-  "char-alyosha": { x: 150, y: 320, filled: true, subtitle: "Alioșa" },
+  "char-alyosha": { x: 150, y: 320, filled: true, subtitle: "Alyosha" },
   "char-smerdyakov": { x: 640, y: 470, filled: false, dashed: true },
-  "char-grushenka": { x: 60, y: 200, filled: false, dashed: true, subtitle: "obiectul" },
-  "char-katerina": { x: 780, y: 360, filled: false, dashed: true, subtitle: "logodnica" },
-  "char-zosima": { x: 200, y: 540, filled: false, dashed: true, subtitle: "starețul †" },
+  "char-grushenka": { x: 60, y: 200, filled: false, dashed: true, subtitle: "the object" },
+  "char-katerina": { x: 780, y: 360, filled: false, dashed: true, subtitle: "the fiancée" },
+  "char-zosima": { x: 200, y: 540, filled: false, dashed: true, subtitle: "the elder †" },
 }
 
 /** Above this many characters we stop hand-placing and lay them out in a circle. */
@@ -243,7 +243,18 @@ export function RelationsView({ bookId }: RelationsViewProps) {
         {loading ? (
           <div className="flex h-full items-center justify-center">
             <p className="animate-pulse font-serif italic text-muted-foreground">
-              se încarcă relațiile…
+              loading relationships…
+            </p>
+          </div>
+        ) : characters.length === 0 ? (
+          // Graf gol: fără personaje nu avem ce desena. Arătăm un mesaj curat
+          // în loc de canvas-ul React Flow gol (care lasă un dreptunghi pe ecran lat).
+          <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
+            <p className="font-serif text-lg italic text-muted-foreground">
+              No characters to connect yet.
+            </p>
+            <p className="font-serif text-sm italic text-muted-foreground/70">
+              Add characters in the “characters” tab, then come back here.
             </p>
           </div>
         ) : (
@@ -271,13 +282,14 @@ export function RelationsView({ bookId }: RelationsViewProps) {
         )}
       </div>
 
-      {/* Footer legend */}
-      <div className="border-t border-border/30 px-4 py-3 sm:px-6">
-        <p className="text-center font-serif text-xs text-muted-foreground/60">
-          noduri pline = familia Karamazov · noduri conturate = ceilalți · linie punctată = relație
-          secretă · treci cu mouse-ul peste un nod pentru a izola legăturile lui
-        </p>
-      </div>
+      {/* Footer legend (doar când avem ce arăta) */}
+      {!loading && characters.length > 0 && (
+        <div className="border-t border-border/30 px-4 py-3 sm:px-6">
+          <p className="text-center font-serif text-xs text-muted-foreground/60">
+            dashed line = secret relationship · hover a node to isolate its connections
+          </p>
+        </div>
+      )}
     </main>
   )
 }

@@ -28,11 +28,11 @@ interface AddFragmentDialogProps {
 }
 
 const FRAGMENT_TYPES: { value: FragmentType; label: string }[] = [
-  { value: "object", label: "obiect" },
-  { value: "quote", label: "citat" },
-  { value: "place", label: "loc" },
-  { value: "symbol", label: "simbol" },
-  { value: "human", label: "om" },
+  { value: "object", label: "object" },
+  { value: "quote", label: "quote" },
+  { value: "place", label: "place" },
+  { value: "symbol", label: "symbol" },
+  { value: "human", label: "human" },
 ]
 
 export function AddFragmentDialog({
@@ -58,7 +58,7 @@ export function AddFragmentDialog({
 
   async function handleSubmit() {
     if (!characterId || !content.trim()) {
-      setError("Alege un personaj și completează conținutul.")
+      setError("Choose a character and fill in the content.")
       return
     }
     setSaving(true)
@@ -82,7 +82,7 @@ export function AddFragmentDialog({
       onAdded()
       onClose()
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Eroare la salvare.")
+      setError(e instanceof Error ? e.message : "Failed to save.")
     } finally {
       setSaving(false)
     }
@@ -92,11 +92,11 @@ export function AddFragmentDialog({
     "w-full rounded border border-border bg-secondary px-3 py-2 font-serif text-sm text-foreground focus:border-primary focus:outline-none"
 
   return (
-    <Modal open={open} onClose={onClose} title="Adaugă un fragment">
+    <Modal open={open} onClose={onClose} title="Add a fragment">
       <div className="flex flex-col gap-4">
         {/* Character */}
         <label className="flex flex-col gap-1">
-          <span className="text-xs uppercase tracking-wide text-muted-foreground">personaj</span>
+          <span className="text-xs uppercase tracking-wide text-muted-foreground">character</span>
           <select
             value={characterId}
             onChange={(e) => setCharacterId(e.target.value)}
@@ -112,7 +112,7 @@ export function AddFragmentDialog({
 
         {/* Type */}
         <label className="flex flex-col gap-1">
-          <span className="text-xs uppercase tracking-wide text-muted-foreground">tip</span>
+          <span className="text-xs uppercase tracking-wide text-muted-foreground">type</span>
           <select
             value={type}
             onChange={(e) => setType(e.target.value as FragmentType)}
@@ -128,13 +128,13 @@ export function AddFragmentDialog({
 
         {/* Content — textarea for quotes, input for everything else */}
         <label className="flex flex-col gap-1">
-          <span className="text-xs uppercase tracking-wide text-muted-foreground">conținut</span>
+          <span className="text-xs uppercase tracking-wide text-muted-foreground">content</span>
           {type === "quote" ? (
             <textarea
               value={content}
               onChange={(e) => setContent(e.target.value)}
               rows={3}
-              placeholder="„Un citat din carte…"
+              placeholder="“A quote from the book…”"
               className={inputClass}
             />
           ) : (
@@ -142,7 +142,7 @@ export function AddFragmentDialog({
               type="text"
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              placeholder="ex. uniformă, icoană, cognac…"
+              placeholder="e.g. uniform, icon, cognac…"
               className={inputClass}
             />
           )}
@@ -157,14 +157,14 @@ export function AddFragmentDialog({
             disabled={saving}
             className="rounded border border-muted-foreground/40 px-4 py-2 font-serif text-sm italic text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
           >
-            anulează
+            cancel
           </button>
           <button
             onClick={handleSubmit}
             disabled={saving}
             className="rounded bg-primary px-4 py-2 font-serif text-sm italic text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
           >
-            {saving ? "se salvează…" : "adaugă"}
+            {saving ? "saving…" : "add"}
           </button>
         </div>
       </div>
