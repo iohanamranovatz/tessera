@@ -8,14 +8,108 @@
  * (le completăm cu valori implicite la salvare, în etapa următoare).
  */
 
+import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { Feather } from "lucide-react"
 import { useOnboarding, type OnboardingData } from "../OnboardingContext"
+import type { AiBookResult } from "@/lib/book-ai"
 
 export default function TitlePage() {
   const router = useRouter()
-  const { data, setField } = useOnboarding()
+  const { data, setField, setCharacters, setRelationships } = useOnboarding()
+
+  // Stare pentru completarea cu AI: „se încarcă?" + un mesaj (succes sau eroare).
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiNote, setAiNote] = useState<{ kind: "ok" | "err"; text: string } | null>(null)
 
   const canContinue = data.title.trim().length > 0
+
+  /**
+   * Cheamă ruta server /api/generate-book cu titlul (+ autorul, dacă există) și
+   * pre-completează formularul: autor, an, capitole și lista de personaje.
+   * Relațiile/descrierile vin de la AI, dar onboarding-ul nu le salvează încă —
+   * le legăm într-o etapă următoare.
+   */
+  async function fillWithAi() {
+    if (!canContinue || aiLoading) return
+    setAiLoading(true)
+    setAiNote(null)
+    try {
+      const res = await fetch("/api/generate-book", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: data.title.trim(),
+          author: data.author.trim() || undefined,
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || "The archive stayed silent.")
+
+      const result = json as AiBookResult
+
+      // Completăm doar câmpurile goale pentru autor; restul le punem mereu.
+      if (result.book.author && !data.author.trim()) setField("author", result.book.author)
+      if (result.book.year) setField("year", String(result.book.year))
+      if (result.book.totalChapters) setField("totalChapters", String(result.book.totalChapters))
+      if (result.book.language) setField("language", result.book.language)
+
+      // Personajele AI → schițe (cu id nou). Reținem un map nume → id, ca să putem
+      // lega relațiile (AI le dă prin nume, nu prin id).
+      const nameToId = new Map<string, string>()
+      const characterDrafts = result.characters.map((c) => {
+        const id = crypto.randomUUID()
+        nameToId.set(c.name, id)
+        return {
+          id,
+          name: c.name,
+          nicknames: c.nicknames,
+          tags: c.tags,
+          color: c.color,
+          description: c.description,
+          status: c.status,
+          appearsInChapter: c.appearsInChapter,
+        }
+      })
+
+      // Relațiile AI → schițe, traducând fromName/toName în id-uri. Sărim peste
+      // relațiile ale căror capete nu se regăsesc printre personaje.
+      const relationshipDrafts = result.relationships.flatMap((r) => {
+        const fromId = nameToId.get(r.fromName)
+        const toId = nameToId.get(r.toName)
+        if (!fromId || !toId) return []
+        return [
+          {
+            id: crypto.randomUUID(),
+            fromCharacterId: fromId,
+            toCharacterId: toId,
+            type: r.type,
+            label: r.label,
+            description: r.description,
+            strength: r.strength,
+            isSecret: r.isSecret,
+            revealedInChapter: r.revealedInChapter,
+          },
+        ]
+      })
+
+      setCharacters(characterDrafts)
+      setRelationships(relationshipDrafts)
+
+      setAiNote(
+        result.characters.length > 0
+          ? {
+              kind: "ok",
+              text: `Found ${result.characters.length} characters and ${relationshipDrafts.length} relationships — review them ahead.`,
+            }
+          : { kind: "err", text: "Couldn't find that book — add the characters yourself." },
+      )
+    } catch (e) {
+      setAiNote({ kind: "err", text: e instanceof Error ? e.message : "Something went wrong." })
+    } finally {
+      setAiLoading(false)
+    }
+  }
 
   return (
     <div className="flex flex-1 flex-col">
@@ -58,6 +152,29 @@ export default function TitlePage() {
               placeholder="12"
               numeric
             />
+          </div>
+
+          {/* Completare automată cu AI — apare după ce ai scris un titlu. */}
+          <div className="space-y-3 pt-2">
+            <button
+              type="button"
+              onClick={fillWithAi}
+              disabled={!canContinue || aiLoading}
+              className="flex w-full items-center justify-center gap-2 rounded border border-dashed border-muted-foreground/40 py-3 font-serif italic text-muted-foreground transition-colors hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-muted-foreground/40 disabled:hover:text-muted-foreground"
+            >
+              <Feather className={`h-4 w-4 ${aiLoading ? "animate-pulse" : ""}`} />
+              {aiLoading ? "consulting the archive…" : "fill with AI"}
+            </button>
+
+            {aiNote && (
+              <p
+                className={`text-center text-sm italic ${
+                  aiNote.kind === "ok" ? "text-muted-foreground" : "text-destructive"
+                }`}
+              >
+                {aiNote.text}
+              </p>
+            )}
           </div>
         </div>
       </div>

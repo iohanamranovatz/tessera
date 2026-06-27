@@ -13,8 +13,8 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { createBook, createCharacter } from "@/hooks/use-tessera-data"
-import type { Book, Character } from "@/types"
+import { createBook, createCharacter, createRelationship } from "@/hooks/use-tessera-data"
+import type { Book, Character, Relationship } from "@/types"
 import { useOnboarding } from "../OnboardingContext"
 
 /** Culoare implicită pentru cotorul cărții dacă nu există niciun personaj. */
@@ -44,7 +44,8 @@ export default function DonePage() {
         title: data.title.trim() || "Untitled book",
         author: data.author.trim(),
         year: parseInt(data.year, 10) || 0,
-        language: "",
+        // Limba vine de la AI dacă a completat; altfel rămâne goală.
+        language: data.language,
         totalChapters,
         currentChapter,
         // Cotorul ia culoarea primului personaj, dacă există.
@@ -54,21 +55,45 @@ export default function DonePage() {
       // 1. Cartea întâi (personajele o referențiază).
       await createBook(book)
 
-      // 2. Apoi fiecare personaj.
+      // 2. Apoi fiecare personaj. Câmpurile bogate (descriere/status/capitol) vin
+      //    de la AI dacă există; pentru personajele adăugate manual punem valori
+      //    implicite.
       for (const draft of data.characters) {
         const character: Character = {
           id: draft.id,
           bookId,
           name: draft.name,
           nicknames: draft.nicknames,
-          description: "",
+          description: draft.description ?? "",
           tags: draft.tags,
           color: draft.color,
-          status: "alive",
-          appearsInChapter: 1,
+          status: draft.status ?? "alive",
+          appearsInChapter: draft.appearsInChapter ?? 1,
           avatarType: "initial",
         }
         await createCharacter(character)
+      }
+
+      // 3. La final relațiile (au chei străine spre personaje, deci abia după ele).
+      //    Ne asigurăm că ambele capete chiar există printre personajele salvate.
+      const characterIds = new Set(data.characters.map((c) => c.id))
+      for (const draft of data.relationships) {
+        if (!characterIds.has(draft.fromCharacterId) || !characterIds.has(draft.toCharacterId)) {
+          continue
+        }
+        const relationship: Relationship = {
+          id: draft.id,
+          bookId,
+          fromCharacterId: draft.fromCharacterId,
+          toCharacterId: draft.toCharacterId,
+          type: draft.type,
+          label: draft.label,
+          description: draft.description,
+          strength: draft.strength,
+          isSecret: draft.isSecret,
+          revealedInChapter: draft.revealedInChapter,
+        }
+        await createRelationship(relationship)
       }
 
       // Golim flow-ul și deschidem cartea nouă.
@@ -109,7 +134,8 @@ export default function DonePage() {
             <p className="mb-3 text-xs uppercase tracking-[0.15em] text-muted-foreground">
               {data.characters.length === 0
                 ? "No characters — you can add them later"
-                : `${data.characters.length} characters`}
+                : `${data.characters.length} characters` +
+                  (data.relationships.length > 0 ? ` · ${data.relationships.length} relationships` : "")}
             </p>
             <div className="flex flex-wrap gap-2">
               {data.characters.map((character) => (

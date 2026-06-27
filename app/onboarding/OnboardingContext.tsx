@@ -16,8 +16,9 @@
  */
 
 import { createContext, useContext, useState, type ReactNode } from "react"
+import type { CharacterStatus, RelationshipType } from "@/types"
 
-/** Un personaj adăugat manual în timpul onboarding-ului (încă nesalvat în DB). */
+/** Un personaj adăugat în timpul onboarding-ului (încă nesalvat în DB). */
 export interface OnboardingCharacterDraft {
   /** Id local (crypto.randomUUID) — ne ajută să-l edităm/ștergem din listă. */
   id: string
@@ -28,6 +29,28 @@ export interface OnboardingCharacterDraft {
   tags: string[]
   /** Culoarea de accent aleasă din paletă (hex, ex: "#8a3020"). */
   color: string
+  // --- câmpuri completate doar de AI (formularul manual nu le cere) ---
+  /** Descriere scurtă, spoiler-safe. Gol dacă personajul e adăugat manual. */
+  description?: string
+  status?: CharacterStatus
+  /** Primul capitol în care apare (pentru filtrul anti-spoiler). */
+  appearsInChapter?: number
+}
+
+/**
+ * O relație între două personaje, completată de AI.
+ * Leagă personajele prin id-ul lor de schiță (`OnboardingCharacterDraft.id`).
+ */
+export interface OnboardingRelationshipDraft {
+  id: string
+  fromCharacterId: string
+  toCharacterId: string
+  type: RelationshipType
+  label?: string
+  description?: string
+  strength: 1 | 2 | 3
+  isSecret?: boolean
+  revealedInChapter?: number
 }
 
 /** Tot ce strânge flow-ul de onboarding, înainte de salvarea finală. */
@@ -45,6 +68,11 @@ export interface OnboardingData {
   currentChapter: string
   // --- ecran 3: characters ---
   characters: OnboardingCharacterDraft[]
+  // --- completate de AI ---
+  /** Limba originală a cărții (ex: "Russian"). Gol dacă nu o știm. */
+  language: string
+  /** Relațiile dintre personaje (doar din AI deocamdată). */
+  relationships: OnboardingRelationshipDraft[]
 }
 
 /** Valorile de pornire — flow-ul începe gol. */
@@ -56,6 +84,8 @@ const EMPTY: OnboardingData = {
   hasRead: false,
   currentChapter: "1",
   characters: [],
+  language: "",
+  relationships: [],
 }
 
 interface OnboardingContextValue {
@@ -65,6 +95,10 @@ interface OnboardingContextValue {
   addCharacter: (character: OnboardingCharacterDraft) => void
   updateCharacter: (id: string, patch: Partial<OnboardingCharacterDraft>) => void
   removeCharacter: (id: string) => void
+  /** Înlocuiește toată lista de personaje (folosit la completarea cu AI). */
+  setCharacters: (characters: OnboardingCharacterDraft[]) => void
+  /** Înlocuiește toate relațiile (folosit la completarea cu AI). */
+  setRelationships: (relationships: OnboardingRelationshipDraft[]) => void
   /** Golește tot (după ce am salvat cu succes). */
   reset: () => void
 }
@@ -93,7 +127,19 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     setData((prev) => ({
       ...prev,
       characters: prev.characters.filter((ch) => ch.id !== id),
+      // Scoatem și relațiile care atârnau de personajul șters (altfel rămân orfane).
+      relationships: prev.relationships.filter(
+        (rel) => rel.fromCharacterId !== id && rel.toCharacterId !== id,
+      ),
     }))
+  }
+
+  function setCharacters(characters: OnboardingCharacterDraft[]) {
+    setData((prev) => ({ ...prev, characters }))
+  }
+
+  function setRelationships(relationships: OnboardingRelationshipDraft[]) {
+    setData((prev) => ({ ...prev, relationships }))
   }
 
   function reset() {
@@ -102,7 +148,16 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
 
   return (
     <OnboardingCtx.Provider
-      value={{ data, setField, addCharacter, updateCharacter, removeCharacter, reset }}
+      value={{
+        data,
+        setField,
+        addCharacter,
+        updateCharacter,
+        removeCharacter,
+        setCharacters,
+        setRelationships,
+        reset,
+      }}
     >
       {children}
     </OnboardingCtx.Provider>

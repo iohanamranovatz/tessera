@@ -258,6 +258,28 @@ export async function createCharacter(character: Character): Promise<void> {
 }
 
 /**
+ * Inserts a new relationship into Supabase.
+ * The two character ids must already exist (the table has foreign keys to
+ * `characters`), so always save the characters BEFORE their relationships.
+ * Throws on error so the caller can show a message.
+ */
+export async function createRelationship(relationship: Relationship): Promise<void> {
+  const { error } = await supabase.from("relationships").insert({
+    id: relationship.id,
+    book_id: relationship.bookId,
+    from_character_id: relationship.fromCharacterId,
+    to_character_id: relationship.toCharacterId,
+    type: relationship.type,
+    label: relationship.label ?? null,
+    description: relationship.description ?? null,
+    strength: relationship.strength,
+    is_secret: relationship.isSecret ?? false,
+    revealed_in_chapter: relationship.revealedInChapter ?? null,
+  })
+  if (error) throw new Error(error.message)
+}
+
+/**
  * Updates an existing character (matched by id).
  * Throws on error so the caller can show a message.
  */
