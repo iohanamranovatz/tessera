@@ -35,6 +35,9 @@ export interface OnboardingCharacterDraft {
   status?: CharacterStatus
   /** Primul capitol în care apare (pentru filtrul anti-spoiler). */
   appearsInChapter?: number
+  /** Căutări vizuale propuse de AI — folosite la salvare ca să aducem imagini
+   *  reale pe board (vezi /api/generate-fragments). */
+  imageQueries?: string[]
 }
 
 /**

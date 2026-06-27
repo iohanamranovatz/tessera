@@ -16,7 +16,27 @@ interface FragmentContentProps {
   color: string
 }
 
+/** True if the fragment's content is an image URL (vs. a short text/glyph). */
+function isImageUrl(content: string): boolean {
+  return /^https?:\/\//.test(content)
+}
+
 export function FragmentContent({ fragment, color }: FragmentContentProps) {
+  // Real image (from Stage 6.C): content holds a URL → render it filling the card.
+  if (isImageUrl(fragment.content)) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element -- external URLs from
+      // many sources (museums/Unsplash); next/image needs per-domain config and
+      // Unsplash forbids caching, so a plain <img> with hotlinking is correct here.
+      <img
+        src={fragment.content}
+        alt={fragment.label ?? ""}
+        loading="lazy"
+        className="h-full w-full object-cover"
+      />
+    )
+  }
+
   switch (fragment.type) {
     // A short line of text, shown as a centred italic quote.
     case "quote":

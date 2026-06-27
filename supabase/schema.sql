@@ -1,15 +1,3 @@
--- Tessera — database schema
--- Run this once in the Supabase dashboard: SQL Editor -> New query -> paste -> Run.
---
--- Notes:
---  * Column names use snake_case (Postgres convention). The app maps them to the
---    camelCase TypeScript model when reading/writing.
---  * For now there is NO authentication: a single shared dataset, with permissive
---    RLS policies so the public anon key can read & write. Auth can be added later.
-
--- ---------------------------------------------------------------------------
--- Tables
--- ---------------------------------------------------------------------------
 
 create table if not exists books (
   id              text primary key,
@@ -59,21 +47,16 @@ create table if not exists fragments (
   size         text                   -- 'small' | 'medium' | 'large'
 );
 
--- Helpful indexes for the most common lookups (everything filtered by book).
 create index if not exists idx_characters_book    on characters(book_id);
 create index if not exists idx_relationships_book on relationships(book_id);
 create index if not exists idx_fragments_book      on fragments(book_id);
 
--- ---------------------------------------------------------------------------
--- Row Level Security (permissive, no-auth dev setup)
--- ---------------------------------------------------------------------------
 
 alter table books         enable row level security;
 alter table characters    enable row level security;
 alter table relationships enable row level security;
 alter table fragments     enable row level security;
 
--- Allow the anon (public) role full access for now. Tighten these once auth is added.
 create policy "anon full access - books"         on books         for all using (true) with check (true);
 create policy "anon full access - characters"    on characters    for all using (true) with check (true);
 create policy "anon full access - relationships" on relationships for all using (true) with check (true);

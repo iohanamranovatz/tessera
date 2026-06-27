@@ -12,9 +12,11 @@
  * dim/brighten without prop drilling.
  */
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Plus } from "lucide-react"
 import { useFragments, useCharacters } from "@/hooks/use-tessera-data"
+import { takePendingImages } from "@/lib/pending-images"
+import { isGeneratingImages, startImageGeneration } from "@/lib/image-generation"
 import { CollageProvider, useCollage } from "@/context/CollageContext"
 import { Fragment } from "./Fragment"
 import { CharacterTooltip } from "./CharacterTooltip"
@@ -40,6 +42,28 @@ function CollageBoardInner({ bookId }: CollageBoardProps) {
 
   const [cursor, setCursor] = useState({ x: 0, y: 0 })
   const [addOpen, setAddOpen] = useState(false)
+  const [generating, setGenerating] = useState(false)
+
+  // După onboarding, board-ul ridică „biletul" cu personajele ce așteaptă imagini
+  // și pornește căutarea în fundal. Cât timp durează, reîmprospătăm fragmentele
+  // periodic, ca imaginile să apară în valuri. (Vezi lib/image-generation.ts.)
+  useEffect(() => {
+    const work = takePendingImages(bookId)
+    if (work) startImageGeneration(bookId, work)
+
+    // Dacă nimic nu se generează (nici acum pornit, nici deja în curs), ieșim.
+    if (!work && !isGeneratingImages(bookId)) return
+
+    setGenerating(true)
+    const interval = setInterval(() => {
+      void refetch()
+      if (!isGeneratingImages(bookId)) {
+        clearInterval(interval)
+        setGenerating(false)
+      }
+    }, 3000)
+    return () => clearInterval(interval)
+  }, [bookId, refetch])
 
   // Index characters by id so each fragment + the tooltip can look theirs up.
   const charactersById = useMemo(
@@ -79,6 +103,15 @@ function CollageBoardInner({ bookId }: CollageBoardProps) {
         <div className="absolute inset-0 flex items-center justify-center">
           <p className="animate-pulse font-serif italic text-muted-foreground">
             loading fragments…
+          </p>
+        </div>
+      )}
+
+      {/* While images are being gathered in the background after onboarding */}
+      {generating && (
+        <div className="absolute left-1/2 top-4 z-50 -translate-x-1/2">
+          <p className="animate-pulse rounded-full border border-border bg-card/80 px-4 py-1.5 font-serif text-xs italic text-muted-foreground shadow-sm backdrop-blur">
+            gathering images…
           </p>
         </div>
       )}

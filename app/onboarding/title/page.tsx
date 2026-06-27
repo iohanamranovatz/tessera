@@ -69,6 +69,7 @@ export default function TitlePage() {
           description: c.description,
           status: c.status,
           appearsInChapter: c.appearsInChapter,
+          imageQueries: c.imageQueries,
         }
       })
 

@@ -17,6 +17,7 @@
 
 import { z } from "zod"
 import { generateJson } from "@/lib/gemini"
+import { fetchBookArticle, type WikipediaArticle } from "@/lib/wikipedia"
 
 // ---------------------------------------------------------------------------
 // 1. SCHEMA — exact forma validă. Dacă AI-ul deviază, Zod aruncă eroare clară.
@@ -45,6 +46,10 @@ const AiCharacterSchema = z.object({
   status: z.enum(["alive", "dead", "unknown"]),
   /** Primul capitol în care apare personajul (pentru filtrul anti-spoiler). */
   appearsInChapter: z.number().int().positive(),
+  /** 2-3 căutări vizuale (în engleză) pentru imagini de atmosferă asociate
+   *  personajului — obiecte, locuri, portrete de epocă. NU numele personajului.
+   *  Le folosim la 6.C pentru a aduce imagini reale pe board. */
+  imageQueries: z.array(z.string()).default([]),
 })
 
 const AiRelationshipSchema = z.object({
@@ -100,25 +105,40 @@ Sarcina ta: pentru o carte dată, întorci personajele principale și relațiile
 
 Reguli ABSOLUTE:
 - Răspunzi DOAR cu JSON valid care respectă schema cerută. Fără markdown, fără \`\`\`, fără text în jur.
-- Te bazezi pe cunoștințele tale despre carte. Dacă nu cunoști cartea, întorci o listă goală de characters (NU inventezi personaje).
+- Dacă primești un articol Wikipedia despre carte, te bazezi STRICT pe el plus cunoștințele tale generale. Nu contrazice articolul și nu inventa personaje care nu apar nicăieri.
+- Dacă NU primești articol și nici nu cunoști cartea, întorci o listă goală de characters (NU inventezi personaje).
+- ATENȚIE LA SPOILERE: articolul Wikipedia descrie de obicei TOATĂ intriga, inclusiv finalul. Respectă întotdeauna limita de capitol cerută mai jos — NU folosi din articol nimic ce se întâmplă după capitolul curent al cititorului.
 - "color" și "coverColor" sunt OBLIGATORIU una dintre valorile hex din paleta dată. Atât. Nicio altă culoare.
 - "type" la relații e EXACT una dintre: family, love, conflict, mentor.
 - "strength" e 1, 2 sau 3 (număr, nu text).
 - "fromName"/"toName" trebuie să fie identice cu un "name" din lista characters.
-- Descrierile sunt scurte (1-2 propoziții), în engleză, pe un ton sobru de manuscris vechi.`
+- Descrierile sunt scurte (1-2 propoziții), în engleză, pe un ton sobru de manuscris vechi.
+- "imageQueries": pentru FIECARE personaj, dă 2-3 căutări vizuale scurte în engleză pentru imagini de ATMOSFERĂ (obiecte, locuri, portrete sau picturi de epocă) care evocă personajul. Descrie LUCRURI/LOCURI/ATMOSFERĂ, NU numele personajului (nu vom găsi tablouri cu el). Ex bune: "worn military greatcoat", "19th century Saint Petersburg snowy street", "old monastery candlelight". Preferă termeni care există în colecții de muzeu.`
 
 /** Construiește mesajul concret (user) pentru cartea cerută. */
-function buildPrompt(input: GenerateBookInput): string {
+function buildPrompt(input: GenerateBookInput, article: WikipediaArticle | null): string {
   const { title, author, currentChapter, totalChapters } = input
 
-  // Filtru anti-spoiler de bază. (Versiunea completă, cu Wikipedia, vine la 6.B.)
+  // Filtru anti-spoiler. Subliniem că se aplică și informațiilor din articol.
   const spoilerNote =
     currentChapter && currentChapter > 0
-      ? `Cititorul e la capitolul ${currentChapter}. NU include personaje care apar abia după acest capitol și NU dezvălui evenimente/relații de după el. Pentru relațiile încă necunoscute cititorului la capitolul ${currentChapter}, pune "isSecret": true și "revealedInChapter".`
+      ? `Cititorul e la capitolul ${currentChapter}. NU include personaje care apar abia după acest capitol și NU dezvălui evenimente/relații de după el — nici măcar dacă articolul Wikipedia le menționează. Pentru relațiile încă necunoscute cititorului la capitolul ${currentChapter}, pune "isSecret": true și "revealedInChapter".`
       : `Presupune că cititorul abia a început cartea; rămâi la informații de la începutul cărții.`
+
+  // Blocul RAG: articolul Wikipedia ca sursă de încredere. Dacă lipsește, îi
+  // spunem explicit AI-ului să se bazeze pe cunoștințele lui (fără să inventeze).
+  const articleBlock = article
+    ? `Sursă de încredere — articol Wikipedia (${article.language}) despre carte. Bazează-te în primul rând pe el:
+"""
+${article.text}
+"""`
+    : `(Nu am găsit un articol Wikipedia despre această carte. Folosește doar ce știi sigur; dacă nu cunoști cartea, întoarce characters: [].)`
 
   return `Carte: "${title}"${author ? ` de ${author}` : ""}.
 ${totalChapters ? `Are aproximativ ${totalChapters} capitole.` : ""}
+
+${articleBlock}
+
 ${spoilerNote}
 
 Paleta de culori permisă (alege "color" și "coverColor" DOAR de aici):
@@ -127,7 +147,7 @@ ${PALETTE.join(", ")}
 Întoarce un JSON cu această formă exactă:
 {
   "book": { "title", "author", "year" (număr), "language", "totalChapters" (număr), "coverColor" },
-  "characters": [ { "name", "nicknames": [], "description", "tags": [], "color", "status": "alive"|"dead"|"unknown", "appearsInChapter" (număr) } ],
+  "characters": [ { "name", "nicknames": [], "description", "tags": [], "color", "status": "alive"|"dead"|"unknown", "appearsInChapter" (număr), "imageQueries": ["...", "..."] } ],
   "relationships": [ { "fromName", "toName", "type": "family"|"love"|"conflict"|"mentor", "label", "description", "strength": 1|2|3, "isSecret"?, "revealedInChapter"? } ]
 }
 
@@ -144,8 +164,12 @@ Dă 5-10 personaje principale și relațiile importante dintre ele.`
  * mai bine să pice aici, zgomotos, decât să salvăm date stricate.
  */
 export async function generateBookData(input: GenerateBookInput): Promise<AiBookResult> {
+  // PASUL RAG: întâi aducem articolul Wikipedia (sau null dacă nu există).
+  // Nu blocăm generarea dacă lipsește — AI-ul cade pe cunoștințele lui.
+  const article = await fetchBookArticle(input.title, input.author)
+
   const raw = await generateJson({
-    prompt: buildPrompt(input),
+    prompt: buildPrompt(input, article),
     systemInstruction: SYSTEM_INSTRUCTION,
     temperature: 0.4,
   })

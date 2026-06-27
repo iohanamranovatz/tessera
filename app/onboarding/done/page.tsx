@@ -15,6 +15,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { createBook, createCharacter, createRelationship } from "@/hooks/use-tessera-data"
 import type { Book, Character, Relationship } from "@/types"
+import { setPendingImages } from "@/lib/pending-images"
 import { useOnboarding } from "../OnboardingContext"
 
 /** Culoare implicită pentru cotorul cărții dacă nu există niciun personaj. */
@@ -96,7 +97,17 @@ export default function DonePage() {
         await createRelationship(relationship)
       }
 
-      // Golim flow-ul și deschidem cartea nouă.
+      // 4. Imaginile durează ~30s de căutat — NU așteptăm aici. Lăsăm un bilet cu
+      //    personajele care au query-uri vizuale; board-ul ridică biletul și caută
+      //    imaginile în fundal, afișându-le pe măsură ce vin.
+      const withQueries = data.characters
+        .filter((c) => (c.imageQueries?.length ?? 0) > 0)
+        .map((c) => ({ id: c.id, imageQueries: c.imageQueries ?? [] }))
+      if (withQueries.length > 0) {
+        setPendingImages({ bookId, characters: withQueries })
+      }
+
+      // Golim flow-ul și deschidem cartea nouă IMEDIAT (nu mai blocăm pe imagini).
       reset()
       router.push(`/book/${bookId}?tab=collage`)
     } catch (e) {
