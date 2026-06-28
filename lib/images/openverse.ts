@@ -8,9 +8,14 @@
  *
  * Notă: fără cheie există o limită de rată mai mică. E suficient pentru dezvoltare;
  * dacă lovim limita, ne putem înregistra pentru un token (la 6.C.2+ dacă e nevoie).
+ *
+ * LICENȚE (vezi STAGIUL 7.5):
+ * Implicit Openverse întoarce TOT — inclusiv CC BY-SA, care ne-ar obliga la
+ * open source. Cerem server-side `license_type=public_domain` (= PDM + CC0)
+ * și verificăm și pe client câmpul `license` ca plasă de siguranță.
  */
 
-import type { ImageResult } from "./types"
+import type { ImageResult, License } from "./types"
 
 const ENDPOINT = "https://api.openverse.org/v1/images/"
 
@@ -26,6 +31,9 @@ export async function searchOpenverse(query: string): Promise<ImageResult[]> {
     const params = new URLSearchParams({
       q: query,
       page_size: String(PAGE_SIZE),
+      // `license_type=public_domain` la Openverse înseamnă PDM + CC0 — exact
+      // ce vrem. Filtrul e server-side: nu primim deloc CC BY / CC BY-SA.
+      license_type: "public_domain",
     })
 
     const res = await fetch(`${ENDPOINT}?${params.toString()}`, {
@@ -36,19 +44,37 @@ export async function searchOpenverse(query: string): Promise<ImageResult[]> {
     const data = await res.json()
     const items: any[] = data?.results ?? []
 
-    return items
-      .filter((it) => it?.url) // trebuie să aibă URL de imagine
-      .map((it) => ({
+    const results: ImageResult[] = []
+    for (const it of items) {
+      if (!it?.url) continue
+      // Plasă de siguranță pe client: confirmăm că licența chiar e PD/CC0.
+      const license = detectLicense(it.license)
+      if (!license) continue
+
+      results.push({
         url: it.url,
         thumbUrl: it.thumbnail || undefined,
         width: it.width || undefined,
         height: it.height || undefined,
         title: it.title || undefined,
         author: it.creator || undefined,
-        source: "openverse" as const,
+        source: "openverse",
         sourceUrl: it.foreign_landing_url || undefined,
-      }))
+        license,
+        requiresAttribution: false,
+      })
+    }
+    return results
   } catch {
     return []
   }
+}
+
+/** Câmpul `license` din Openverse vine ca slug scurt: „cc0", „pdm", „by-sa"… */
+function detectLicense(value?: string): License | null {
+  if (!value) return null
+  const v = value.toLowerCase()
+  if (v === "cc0") return "cc0"
+  if (v === "pdm") return "public-domain"
+  return null
 }

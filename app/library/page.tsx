@@ -5,20 +5,59 @@
  *
  * Lists every book in the library as a grid of <BookCard />s. Clicking a card
  * opens that book's collage view (/book/<id>?tab=collage). The header carries a
- * "+ carte nouă" button that starts the onboarding flow.
+ * "+ new book" button that starts the onboarding flow.
+ *
+ * Each card has a small × button that opens a confirmation dialog. Confirming
+ * deletes the book + all its characters/relationships/fragments (cascade via
+ * the FK constraints in supabase/schema.sql). This is our minimal GDPR
+ * "right to erasure" affordance until per-user auth lands.
  *
  * Data comes from useBooks() (Supabase). While loading we show a few skeleton
  * cards so the page doesn't flash empty.
  */
 
+import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Plus } from "lucide-react"
-import { useBooks } from "@/hooks/use-tessera-data"
+import { useBooks, deleteBook } from "@/hooks/use-tessera-data"
 import { BookCard } from "@/components/library/BookCard"
+import type { Book } from "@/types"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 export default function LibraryPage() {
   const router = useRouter()
-  const { data: books, loading } = useBooks()
+  const { data: books, loading, refetch } = useBooks()
+
+  // Cartea pe care urmează să o ștergem, sau null dacă dialogul e închis.
+  const [pendingDelete, setPendingDelete] = useState<Book | null>(null)
+  // Ține un "in-flight" ca să dezactivăm butonul confirmării și să evităm dublul click.
+  const [deleting, setDeleting] = useState(false)
+  // Mesaj de eroare local, dacă apelul Supabase pică.
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+
+  async function confirmDelete() {
+    if (!pendingDelete || deleting) return
+    setDeleting(true)
+    setDeleteError(null)
+    try {
+      await deleteBook(pendingDelete.id)
+      setPendingDelete(null)
+      await refetch()
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "Couldn't delete the book.")
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   return (
     <div className="min-h-screen paper-texture">
@@ -70,11 +109,50 @@ export default function LibraryPage() {
                 key={book.id}
                 book={book}
                 onClick={() => router.push(`/book/${book.id}?tab=collage`)}
+                onDelete={setPendingDelete}
               />
             ))}
           </div>
         )}
       </main>
+
+      {/* Confirmation dialog. AlertDialog blochează interacțiunea cu restul
+          paginii și e accesibil din tastatură. */}
+      <AlertDialog open={pendingDelete !== null} onOpenChange={(open) => {
+        if (!open) {
+          setPendingDelete(null)
+          setDeleteError(null)
+        }
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-serif italic">
+              Delete this book?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently removes <em>{pendingDelete?.title}</em> along
+              with its characters, relationships, and fragments. This cannot be
+              undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {deleteError && (
+            <p className="text-sm italic text-destructive">{deleteError}</p>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault() // nu închide dialogul până nu termină delete-ul
+                void confirmDelete()
+              }}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? "Deleting…" : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

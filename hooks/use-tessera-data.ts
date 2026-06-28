@@ -54,6 +54,8 @@ function mapFragment(row: Record<string, any>): Fragment {
     label: row.label ?? undefined,
     position: row.position,
     size: row.size,
+    // image_meta e JSONB nullable — fragmentele vechi (înainte de migrare) au null.
+    imageMeta: row.image_meta ?? undefined,
   }
 }
 
@@ -101,30 +103,28 @@ export function useBook(bookId: string) {
   return { data, loading }
 }
 
-/** Loads every book in the library (for the book switcher). */
+/** Loads every book in the library (for the book switcher). Returns `refetch`
+ *  so consumers can reload after a mutation (delete, edit). */
 export function useBooks() {
   const [data, setData] = useState<Book[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    let active = true
+  const load = useCallback(async () => {
     setLoading(true)
-    supabase
+    const { data, error } = await supabase
       .from("books")
       .select("*")
       .order("title")
-      .then(({ data, error }) => {
-        if (!active) return
-        if (error) console.error("useBooks:", error.message)
-        setData((data ?? []).map(mapBook))
-        setLoading(false)
-      })
-    return () => {
-      active = false
-    }
+    if (error) console.error("useBooks:", error.message)
+    setData((data ?? []).map(mapBook))
+    setLoading(false)
   }, [])
 
-  return { data, loading }
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  return { data, loading, refetch: load }
 }
 
 /** Loads all characters for a book. Returns `refetch` to reload on demand. */
@@ -215,6 +215,7 @@ export async function createFragment(fragment: Fragment): Promise<void> {
     label: fragment.label ?? null,
     position: fragment.position,
     size: fragment.size,
+    image_meta: fragment.imageMeta ?? null,
   })
   if (error) throw new Error(error.message)
 }
@@ -276,6 +277,18 @@ export async function createRelationship(relationship: Relationship): Promise<vo
     is_secret: relationship.isSecret ?? false,
     revealed_in_chapter: relationship.revealedInChapter ?? null,
   })
+  if (error) throw new Error(error.message)
+}
+
+/**
+ * Deletes a book and (via the `on delete cascade` FK constraints in
+ * supabase/schema.sql) all its characters, relationships, and fragments.
+ * Used by the "Delete this book" button — our minimal answer to GDPR's
+ * "right to erasure" until per-user auth lands.
+ * Throws on error so the caller can show a message.
+ */
+export async function deleteBook(bookId: string): Promise<void> {
+  const { error } = await supabase.from("books").delete().eq("id", bookId)
   if (error) throw new Error(error.message)
 }
 

@@ -2,13 +2,15 @@
  * met-museum.ts — caută imagini în colecția Metropolitan Museum of Art.
  *
  * API public, GRATIS, fără cheie: https://metmuseum.github.io/
- * Imaginile sunt din domeniul public (open access) — le putem afișa și cacha liber,
- * fără atribuire obligatorie pe ecran. Perfect pentru estetica dark academia
- * (picturi, obiecte, portrete din secolele trecute).
+ * Met are DOUĂ categorii de obiecte:
+ *   - „Open Access" (obj.isPublicDomain === true) → domeniu public, le putem
+ *     afișa, cacha și redistribui liber.
+ *   - Restul → drepturi rezervate, NU avem voie să le folosim public.
+ * Filtrăm strict pe `isPublicDomain === true` (vezi STAGIUL 7.5).
  *
  * Cum merge API-ul (în 2 pași):
  *   1. /search?q=...  → ne dă o listă de ID-uri de obiecte (poate fi foarte lungă).
- *   2. /objects/{id}  → detaliile unui obiect (inclusiv URL-ul imaginii).
+ *   2. /objects/{id}  → detaliile unui obiect (inclusiv URL-ul imaginii + isPublicDomain).
  * Deci pentru fiecare imagine e nevoie de încă un apel. Ca să nu abuzăm, luăm doar
  * primele câteva ID-uri și le cerem detaliile în paralel.
  */
@@ -46,10 +48,13 @@ export async function searchMet(query: string): Promise<ImageResult[]> {
       }),
     )
 
-    // Păstrăm doar obiectele care chiar au o imagine principală și le normalizăm.
+    // Păstrăm doar obiectele care chiar au o imagine principală ȘI sunt în
+    // domeniul public (isPublicDomain === true). Orice altceva ne-ar expune
+    // la încălcare de drepturi de autor — vezi STAGIUL 7.5.
     const results: ImageResult[] = []
     for (const obj of objects) {
       if (!obj?.primaryImage) continue // unele „au imagini" dar nu una principală
+      if (obj.isPublicDomain !== true) continue // filtru strict: doar Open Access
       results.push({
         url: obj.primaryImage, // Met dă imagini de rezoluție mare; nu avem px exacți.
         thumbUrl: obj.primaryImageSmall || undefined,
@@ -58,6 +63,8 @@ export async function searchMet(query: string): Promise<ImageResult[]> {
         year: obj.objectDate || undefined,
         source: "met",
         sourceUrl: obj.objectURL || undefined,
+        license: "public-domain",
+        requiresAttribution: false,
       })
     }
     return results

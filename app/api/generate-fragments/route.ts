@@ -13,6 +13,7 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 import { buildImageFragments } from "@/lib/images/character-fragments"
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit"
 
 const RequestSchema = z.object({
   bookId: z.string().min(1, "bookId e obligatoriu."),
@@ -27,6 +28,12 @@ const RequestSchema = z.object({
 })
 
 export async function POST(request: Request) {
+  // 0. RATE LIMIT — protecție pentru chei API (Europeana, Unsplash).
+  //    Limita e mai mare aici (20/min) fiindcă onboarding-ul cheamă o dată per
+  //    personaj × 2 imagini, dar fiecare apel hits sursele externe în paralel.
+  const limit = await checkRateLimit(request, "generate-fragments", 20, 60)
+  if (!limit.ok) return rateLimitResponse(limit)
+
   // 1. Validăm body-ul.
   let input
   try {

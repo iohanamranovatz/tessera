@@ -83,7 +83,27 @@ const AiBookSchema = z.object({
 })
 
 /** Forma TypeScript a răspunsului AI (dedusă automat din schema Zod de mai sus). */
-export type AiBookResult = z.infer<typeof AiBookSchema>
+export type AiBookResult = z.infer<typeof AiBookSchema> & {
+  /** True dacă am refuzat să generăm personaje pentru că anul publicării
+   *  e prea recent (>= COPYRIGHT_CUTOFF_YEAR). Vezi nota din generateBookData. */
+  restrictedByCopyright?: boolean
+}
+
+/**
+ * An-cutoff pentru restricția pe copyright.
+ * Regula 70 ani post-mortem: o carte din 1954 a cărei autor a murit chiar în
+ * anul publicării ar intra în Public Domain în 2025. Cu marja de siguranță,
+ * tăiem la 1955 — orice carte de DUPĂ acest an primește metadate de la AI,
+ * dar NU și personaje/relații (le poate adăuga userul manual).
+ *
+ * De ce nu apelăm Gemini deloc pentru cărți recente? Pentru că avem nevoie de
+ * AN ca să decidem, iar anul vine TOT de la AI. Soluția: cerem AI-ul, primim
+ * anul, dacă e prea recent aruncăm personajele înainte să le afișăm. Pierdem
+ * un singur call Gemini pe carte recentă, dar UI-ul nu salvează nimic
+ * copyrightat. Pe viitor (dacă vrem să economisim), userul poate completa
+ * anul manual și pre-check-ul s-ar putea face fără AI.
+ */
+export const COPYRIGHT_CUTOFF_YEAR = 1955
 
 // ---------------------------------------------------------------------------
 // 2. PROMPT — instrucțiunile pentru model.
@@ -113,7 +133,8 @@ Reguli ABSOLUTE:
 - "strength" e 1, 2 sau 3 (număr, nu text).
 - "fromName"/"toName" trebuie să fie identice cu un "name" din lista characters.
 - Descrierile sunt scurte (1-2 propoziții), în engleză, pe un ton sobru de manuscris vechi.
-- "imageQueries": pentru FIECARE personaj, dă 2-3 căutări vizuale scurte în engleză pentru imagini de ATMOSFERĂ (obiecte, locuri, portrete sau picturi de epocă) care evocă personajul. Descrie LUCRURI/LOCURI/ATMOSFERĂ, NU numele personajului (nu vom găsi tablouri cu el). Ex bune: "worn military greatcoat", "19th century Saint Petersburg snowy street", "old monastery candlelight". Preferă termeni care există în colecții de muzeu.`
+- "imageQueries": pentru FIECARE personaj, dă 2-3 căutări vizuale scurte în engleză pentru imagini de ATMOSFERĂ (obiecte, locuri, portrete sau picturi de epocă) care evocă personajul. Descrie LUCRURI/LOCURI/ATMOSFERĂ, NU numele personajului (nu vom găsi tablouri cu el). Ex bune: "worn military greatcoat", "19th century Saint Petersburg snowy street", "old monastery candlelight". Preferă termeni care există în colecții de muzeu.
+- "year": EXACT anul PRIMEI publicări originale a cărții (nu al reeditării, nu al traducerii). Ex: "Crime and Punishment" → 1866, NU 2020 (data unei reeditări recente). Acest câmp e folosit ca filtru de copyright.`
 
 /** Construiește mesajul concret (user) pentru cartea cerută. */
 function buildPrompt(input: GenerateBookInput, article: WikipediaArticle | null): string {
@@ -168,12 +189,38 @@ export async function generateBookData(input: GenerateBookInput): Promise<AiBook
   // Nu blocăm generarea dacă lipsește — AI-ul cade pe cunoștințele lui.
   const article = await fetchBookArticle(input.title, input.author)
 
-  const raw = await generateJson({
+  const raw = (await generateJson({
     prompt: buildPrompt(input, article),
     systemInstruction: SYSTEM_INSTRUCTION,
     temperature: 0.4,
-  })
+  })) as Record<string, unknown>
 
-  // .parse aruncă o eroare descriptivă dacă forma nu se potrivește.
-  return AiBookSchema.parse(raw)
+  // Parsare REZISTENTĂ: cartea trebuie să fie validă (e mică, AI-ul rar greșește),
+  // dar pentru personaje și relații păstrăm DOAR elementele care trec validarea.
+  // Așa, o singură deviere a AI-ului (ex: type "friendship", inexistent în enum)
+  // nu mai dărâmă întreaga generare — pierdem doar elementul respectiv.
+  const book = AiBookSchema.shape.book.parse(raw.book)
+  const characters = keepValid(raw.characters, AiCharacterSchema)
+  const relationships = keepValid(raw.relationships, AiRelationshipSchema)
+
+  // FILTRU DE COPYRIGHT (vezi COPYRIGHT_CUTOFF_YEAR de mai sus).
+  // Cartea e prea recentă → ținem metadatele (titlu/autor/an = fapte, nu sunt
+  // copyrightate), dar aruncăm personajele și relațiile (acestea ar fi
+  // derivative din intriga protejată). Userul le va adăuga manual.
+  if (book.year >= COPYRIGHT_CUTOFF_YEAR) {
+    return { book, characters: [], relationships: [], restrictedByCopyright: true }
+  }
+
+  return { book, characters, relationships }
+}
+
+/** Validează fiecare element dintr-un array și păstrează doar pe cele valide. */
+function keepValid<T>(value: unknown, schema: z.ZodType<T>): T[] {
+  if (!Array.isArray(value)) return []
+  const out: T[] = []
+  for (const item of value) {
+    const result = schema.safeParse(item)
+    if (result.success) out.push(result.data)
+  }
+  return out
 }

@@ -73,7 +73,10 @@ export async function searchUnsplash(query: string): Promise<ImageResult[]> {
         authorUrl: it.user?.links?.html ? withUtm(it.user.links.html) : undefined,
         source: "unsplash" as const,
         sourceUrl: it.links?.html ? withUtm(it.links.html) : undefined,
+        license: "unsplash-license" as const, // licență proprie Unsplash
         requiresAttribution: true, // Unsplash OBLIGĂ atribuirea pe ecran
+        // URL-ul de tracking; trebuie pingat la prima folosire reală a imaginii.
+        downloadLocation: it.links?.download_location || undefined,
       }))
   } catch {
     return []

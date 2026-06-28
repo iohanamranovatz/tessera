@@ -97,14 +97,26 @@ export default function TitlePage() {
       setCharacters(characterDrafts)
       setRelationships(relationshipDrafts)
 
-      setAiNote(
-        result.characters.length > 0
-          ? {
-              kind: "ok",
-              text: `Found ${result.characters.length} characters and ${relationshipDrafts.length} relationships — review them ahead.`,
-            }
-          : { kind: "err", text: "Couldn't find that book — add the characters yourself." },
-      )
+      // Trei cazuri de mesaj, în ordinea descrescătoare a încrederii:
+      //   1. AI a fost blocat de filtrul de copyright (carte recentă) → explică.
+      //   2. AI a găsit cartea și a returnat personaje → spune câte.
+      //   3. AI n-a cunoscut cartea (characters: []) → cere user să le adauge.
+      if (result.restrictedByCopyright) {
+        setAiNote({
+          kind: "ok",
+          text: "This book is too recent for safe AI generation. We filled in the basics — please add the characters yourself.",
+        })
+      } else if (result.characters.length > 0) {
+        setAiNote({
+          kind: "ok",
+          text: `Found ${result.characters.length} characters and ${relationshipDrafts.length} relationships — review them ahead.`,
+        })
+      } else {
+        setAiNote({
+          kind: "err",
+          text: "Couldn't find that book — add the characters yourself.",
+        })
+      }
     } catch (e) {
       setAiNote({ kind: "err", text: e instanceof Error ? e.message : "Something went wrong." })
     } finally {

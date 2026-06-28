@@ -64,6 +64,17 @@ export async function buildImageFragments(
         label: top.title || query, // titlul operei, altfel query-ul ca etichetă
         position: { x, y, rotation },
         size: SIZES[placed % SIZES.length],
+        // Persistăm metadata sursei: avem nevoie de ea la fiecare afișare
+        // pentru atribuire (Unsplash) și tracking. Vezi STAGIUL 7.5.B.
+        imageMeta: {
+          source: top.source,
+          license: top.license,
+          author: top.author,
+          authorUrl: top.authorUrl,
+          sourceUrl: top.sourceUrl,
+          requiresAttribution: top.requiresAttribution,
+          downloadLocation: top.downloadLocation,
+        },
       })
       placed++
     }

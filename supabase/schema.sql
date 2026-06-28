@@ -44,8 +44,22 @@ create table if not exists fragments (
   content      text,
   label        text,
   position     jsonb not null default '{"x":50,"y":50,"rotation":0}',  -- { x, y, rotation }
-  size         text                   -- 'small' | 'medium' | 'large'
+  size         text,                  -- 'small' | 'medium' | 'large'
+  image_meta   jsonb                  -- vezi migrations/001_add_fragment_image_meta.sql
 );
+
+-- Coloana e adăugată și aici, ca schema.sql să fie sursa de adevăr pentru o
+-- bază nouă. Pentru bazele existente, rulează migrarea 001 (idempotentă).
+alter table fragments add column if not exists image_meta jsonb;
+
+-- Rate limit — vezi migrations/002_add_rate_limits.sql pentru context.
+create table if not exists rate_limits (
+  key         text primary key,
+  count       int not null default 0,
+  expires_at  timestamptz not null
+);
+alter table rate_limits enable row level security;
+-- (Fără policy → fără acces direct din client. Doar funcția RPC poate atinge.)
 
 create index if not exists idx_characters_book    on characters(book_id);
 create index if not exists idx_relationships_book on relationships(book_id);

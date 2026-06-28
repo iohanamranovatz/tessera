@@ -34,6 +34,13 @@ export default function DonePage() {
   // Dacă a citit deja toată cartea, nu ascundem nimic (filtrul anti-spoiler off).
   if (data.hasRead) currentChapter = totalChapters
 
+  // Review: salvăm DOAR personajele aprobate și relațiile dintre ele.
+  const approvedCharacters = data.characters.filter((c) => c.approved !== false)
+  const approvedIds = new Set(approvedCharacters.map((c) => c.id))
+  const savedRelationships = data.relationships.filter(
+    (r) => approvedIds.has(r.fromCharacterId) && approvedIds.has(r.toCharacterId),
+  )
+
   async function handleSave() {
     setSaving(true)
     setError(null)
@@ -49,8 +56,8 @@ export default function DonePage() {
         language: data.language,
         totalChapters,
         currentChapter,
-        // Cotorul ia culoarea primului personaj, dacă există.
-        coverColor: data.characters[0]?.color ?? DEFAULT_COVER,
+        // Cotorul ia culoarea primului personaj aprobat, dacă există.
+        coverColor: approvedCharacters[0]?.color ?? DEFAULT_COVER,
       }
 
       // 1. Cartea întâi (personajele o referențiază).
@@ -59,7 +66,7 @@ export default function DonePage() {
       // 2. Apoi fiecare personaj. Câmpurile bogate (descriere/status/capitol) vin
       //    de la AI dacă există; pentru personajele adăugate manual punem valori
       //    implicite.
-      for (const draft of data.characters) {
+      for (const draft of approvedCharacters) {
         const character: Character = {
           id: draft.id,
           bookId,
@@ -76,12 +83,8 @@ export default function DonePage() {
       }
 
       // 3. La final relațiile (au chei străine spre personaje, deci abia după ele).
-      //    Ne asigurăm că ambele capete chiar există printre personajele salvate.
-      const characterIds = new Set(data.characters.map((c) => c.id))
-      for (const draft of data.relationships) {
-        if (!characterIds.has(draft.fromCharacterId) || !characterIds.has(draft.toCharacterId)) {
-          continue
-        }
+      //    `savedRelationships` conține deja doar relațiile cu ambele capete aprobate.
+      for (const draft of savedRelationships) {
         const relationship: Relationship = {
           id: draft.id,
           bookId,
@@ -100,7 +103,7 @@ export default function DonePage() {
       // 4. Imaginile durează ~30s de căutat — NU așteptăm aici. Lăsăm un bilet cu
       //    personajele care au query-uri vizuale; board-ul ridică biletul și caută
       //    imaginile în fundal, afișându-le pe măsură ce vin.
-      const withQueries = data.characters
+      const withQueries = approvedCharacters
         .filter((c) => (c.imageQueries?.length ?? 0) > 0)
         .map((c) => ({ id: c.id, imageQueries: c.imageQueries ?? [] }))
       if (withQueries.length > 0) {
@@ -143,13 +146,13 @@ export default function DonePage() {
           {/* Personajele */}
           <div>
             <p className="mb-3 text-xs uppercase tracking-[0.15em] text-muted-foreground">
-              {data.characters.length === 0
+              {approvedCharacters.length === 0
                 ? "No characters — you can add them later"
-                : `${data.characters.length} characters` +
-                  (data.relationships.length > 0 ? ` · ${data.relationships.length} relationships` : "")}
+                : `${approvedCharacters.length} characters` +
+                  (savedRelationships.length > 0 ? ` · ${savedRelationships.length} relationships` : "")}
             </p>
             <div className="flex flex-wrap gap-2">
-              {data.characters.map((character) => (
+              {approvedCharacters.map((character) => (
                 <span
                   key={character.id}
                   className="flex items-center gap-2 rounded-full border border-border bg-card/40 px-3 py-1.5"

@@ -65,7 +65,12 @@ export async function searchImages(query: string): Promise<ImageResult[]> {
  *               redea ce a apărut deja în stratul 1.
  */
 function rank(images: ImageResult[], seen: Set<string>): ImageResult[] {
-  const unique = images.filter((img) => {
+  // Plasă de siguranță legală: orice imagine fără `license` clar setat e
+  // aruncată. Sursele AR TREBUI să o seteze mereu (vezi STAGIUL 7.5), dar
+  // dacă apare un bug în vreun client, nu vrem ca imaginea să ajungă în UI.
+  const licensed = images.filter((img) => img.license !== undefined)
+
+  const unique = licensed.filter((img) => {
     if (seen.has(img.url)) return false
     seen.add(img.url)
     return true

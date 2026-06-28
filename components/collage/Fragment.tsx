@@ -7,16 +7,24 @@
  *   1. a blurred "film" of the character's colour (the coloured halo)
  *   2. the cream card with a soft shadow
  *   3. the type-specific content (see FragmentContent)
+ *   4. an optional attribution line (Unsplash) shown only on hover
  *
  * Hover behaviour (shared via CollageContext):
  *   - hovering this fragment sets the hovered character id
  *   - fragments of the hovered character stay bright with an intense halo
  *   - all other fragments dim out (reduced brightness + saturation)
+ *
+ * Unsplash tracking (STAGIUL 7.5.B):
+ *   - hover > 2s or click triggers a one-shot ping to Unsplash's download
+ *     endpoint, via `/api/unsplash/track`. Handlers are composed with the
+ *     existing collage-hover handlers below.
  */
 
 import { useCollage } from "@/context/CollageContext"
 import type { Character, Fragment as FragmentModel } from "@/types"
 import { FragmentContent } from "./FragmentContent"
+import { ImageAttribution } from "@/components/images/ImageAttribution"
+import { useUnsplashTracking } from "@/hooks/useUnsplashTracking"
 import { cn } from "@/lib/utils"
 
 interface FragmentProps {
@@ -36,6 +44,9 @@ const sizeClasses: Record<FragmentModel["size"], string> = {
 export function Fragment({ fragment, character, zIndex = 1 }: FragmentProps) {
   const { hoveredCharacterId, setHoveredCharacterId } = useCollage()
 
+  // Unsplash tracking — no-op pentru orice imagine fără downloadLocation.
+  const unsplash = useUnsplashTracking(fragment.imageMeta?.downloadLocation)
+
   const color = character?.color ?? "#8a7656"
   const { x, y, rotation } = fragment.position
 
@@ -46,7 +57,8 @@ export function Fragment({ fragment, character, zIndex = 1 }: FragmentProps) {
 
   return (
     <div
-      className="absolute cursor-pointer transition-all duration-300 ease-out"
+      // `group` activează `group-hover:` din ImageAttribution (apare creditul).
+      className="group absolute cursor-pointer transition-all duration-300 ease-out"
       style={{
         left: `${x}%`,
         top: `${y}%`,
@@ -55,8 +67,15 @@ export function Fragment({ fragment, character, zIndex = 1 }: FragmentProps) {
         filter: isDimmed ? "brightness(0.5) saturate(0.4)" : "none",
         opacity: isDimmed ? 0.6 : 1,
       }}
-      onMouseEnter={() => setHoveredCharacterId(fragment.characterId)}
-      onMouseLeave={() => setHoveredCharacterId(null)}
+      onMouseEnter={() => {
+        setHoveredCharacterId(fragment.characterId)
+        unsplash.onMouseEnter() // pornește timer-ul de 2s (no-op dacă nu e Unsplash)
+      }}
+      onMouseLeave={() => {
+        setHoveredCharacterId(null)
+        unsplash.onMouseLeave() // anulează timer-ul
+      }}
+      onClick={unsplash.onClick} // pingează imediat la click
     >
       {/* Layer 1: blurred coloured film / halo behind the card */}
       <div
@@ -77,8 +96,10 @@ export function Fragment({ fragment, character, zIndex = 1 }: FragmentProps) {
           sizeClasses[fragment.size],
         )}
       >
-        <div className="flex h-full w-full items-center justify-center overflow-hidden bg-secondary">
+        <div className="relative flex h-full w-full items-center justify-center overflow-hidden bg-secondary">
           <FragmentContent fragment={fragment} color={color} />
+          {/* Layer 4: atribuire (Unsplash) — vizibilă doar la hover, peste imagine. */}
+          <ImageAttribution meta={fragment.imageMeta} />
         </div>
       </div>
     </div>

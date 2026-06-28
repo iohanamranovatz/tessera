@@ -38,6 +38,9 @@ export interface OnboardingCharacterDraft {
   /** Căutări vizuale propuse de AI — folosite la salvare ca să aducem imagini
    *  reale pe board (vezi /api/generate-fragments). */
   imageQueries?: string[]
+  /** Aprobat pentru salvare? La review, userul poate respinge personaje propuse de
+   *  AI. `undefined` sau `true` = aprobat; `false` = respins (nu se salvează). */
+  approved?: boolean
 }
 
 /**

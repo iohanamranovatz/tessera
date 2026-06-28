@@ -13,6 +13,7 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 import { generateBookData } from "@/lib/book-ai"
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit"
 
 // Validăm CE PRIMIM de la browser (nu avem încredere oarbă în body).
 const RequestSchema = z.object({
@@ -23,6 +24,11 @@ const RequestSchema = z.object({
 })
 
 export async function POST(request: Request) {
+  // 0. RATE LIMIT — protecție pentru bugetul nostru Gemini gratuit.
+  //    10 cereri/minut per IP. Userul normal abia depășește 1/min în onboarding.
+  const limit = await checkRateLimit(request, "generate-book", 10, 60)
+  if (!limit.ok) return rateLimitResponse(limit)
+
   // 1. Citim și validăm body-ul.
   let input
   try {

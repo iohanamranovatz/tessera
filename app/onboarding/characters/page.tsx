@@ -13,7 +13,8 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Plus, X } from "lucide-react"
+import { Check, Plus, X } from "lucide-react"
+import { cn } from "@/lib/utils"
 import { useOnboarding, type OnboardingCharacterDraft } from "../OnboardingContext"
 
 /** Paleta de accente dark-academia (aceeași ca în fișa de personaj). */
@@ -26,14 +27,20 @@ const PALETTE: { value: string; label: string }[] = [
 
 export default function CharactersPage() {
   const router = useRouter()
-  const { data, addCharacter, removeCharacter } = useOnboarding()
+  const { data, addCharacter, updateCharacter } = useOnboarding()
   const [showForm, setShowForm] = useState(false)
+
+  // Paleta sugerată = culorile distincte ale personajelor APROBATE (se actualizează
+  // pe măsură ce aprobi/respingi).
+  const paletteColors = [
+    ...new Set(data.characters.filter((c) => c.approved !== false).map((c) => c.color)),
+  ]
 
   return (
     <div className="flex flex-1 flex-col">
       <div className="flex flex-1 flex-col items-center px-8 py-12">
         <p className="mb-6 text-xs uppercase tracking-[0.2em] text-muted-foreground">Characters</p>
-        <h1 className="mb-12 text-center font-serif text-4xl italic text-foreground md:text-5xl">
+        <h1 className="mb-8 text-center font-serif text-4xl italic text-foreground md:text-5xl">
           Who populates this world?
         </h1>
 
@@ -45,11 +52,39 @@ export default function CharactersPage() {
             </p>
           )}
 
+          {/* Paleta sugerată + îndrumarea de review (doar când avem personaje) */}
+          {data.characters.length > 0 && (
+            <div className="space-y-3 pb-1">
+              <p className="text-center text-sm italic text-muted-foreground">
+                Keep or leave out each character before you continue.
+              </p>
+              {paletteColors.length > 0 && (
+                <div className="flex items-center justify-center gap-2">
+                  <span className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
+                    Palette
+                  </span>
+                  <div className="flex gap-1.5">
+                    {paletteColors.map((color) => (
+                      <span
+                        key={color}
+                        className="h-4 w-4 rounded-full"
+                        style={{ backgroundColor: color }}
+                        aria-hidden
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {data.characters.map((character) => (
             <CharacterRow
               key={character.id}
               character={character}
-              onRemove={() => removeCharacter(character.id)}
+              onToggle={() =>
+                updateCharacter(character.id, { approved: character.approved === false })
+              }
             />
           ))}
 
@@ -93,35 +128,75 @@ export default function CharactersPage() {
   )
 }
 
-/** Un rând din listă: pastila de culoare + nume + porecle, cu buton de ștergere. */
+/**
+ * Un rând din listă pentru review: culoare + nume + porecle + descriere + taguri,
+ * cu un buton ✓/✗ care aprobă sau respinge personajul. Cele respinse rămân în
+ * listă (estompate, tăiate) ca să te poți răzgândi — dar nu se salvează.
+ */
 function CharacterRow({
   character,
-  onRemove,
+  onToggle,
 }: {
   character: OnboardingCharacterDraft
-  onRemove: () => void
+  onToggle: () => void
 }) {
+  const approved = character.approved !== false
+
   return (
-    <div className="flex items-center gap-3 rounded border border-border bg-card/40 px-4 py-3">
+    <div
+      className={cn(
+        "flex items-start gap-3 rounded border px-4 py-3 transition-all",
+        approved ? "border-border bg-card/40" : "border-border/40 bg-card/20 opacity-45",
+      )}
+    >
       <span
-        className="h-4 w-4 shrink-0 rounded-full"
+        className="mt-1 h-4 w-4 shrink-0 rounded-full"
         style={{ backgroundColor: character.color }}
         aria-hidden
       />
       <div className="min-w-0 flex-1">
-        <p className="truncate font-serif italic text-foreground">{character.name}</p>
+        <p
+          className={cn(
+            "truncate font-serif italic text-foreground",
+            !approved && "line-through",
+          )}
+        >
+          {character.name}
+        </p>
         {character.nicknames.length > 0 && (
           <p className="truncate text-xs text-muted-foreground">
             {character.nicknames.join(", ")}
           </p>
         )}
+        {character.description && (
+          <p className="mt-1 line-clamp-2 text-xs italic text-muted-foreground/80">
+            {character.description}
+          </p>
+        )}
+        {character.tags.length > 0 && (
+          <div className="mt-1.5 flex flex-wrap gap-1">
+            {character.tags.slice(0, 4).map((tag) => (
+              <span
+                key={tag}
+                className="rounded-full border border-border/60 px-2 py-0.5 text-[10px] text-muted-foreground"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
       <button
-        onClick={onRemove}
-        className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:text-destructive"
-        aria-label="Remove character"
+        onClick={onToggle}
+        aria-label={approved ? "Leave out this character" : "Keep this character"}
+        className={cn(
+          "mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border transition-colors",
+          approved
+            ? "border-primary bg-primary text-primary-foreground hover:bg-primary/90"
+            : "border-muted-foreground/40 text-muted-foreground hover:border-primary hover:text-primary",
+        )}
       >
-        <X className="h-4 w-4" />
+        {approved ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
       </button>
     </div>
   )

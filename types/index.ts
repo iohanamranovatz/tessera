@@ -91,6 +91,38 @@ export interface Relationship {
 }
 
 /**
+ * Metadata for a fragment whose `content` is an image URL.
+ *
+ * We persist this so attribution (Unsplash) and licensing info survive a page
+ * reload — when the user opens the book tomorrow, we still know that the photo
+ * is from Unsplash and needs the photographer credit on screen.
+ *
+ * All fields optional: legacy fragments (created before STAGIUL 7.5) carry
+ * `imageMeta === undefined`. Fragments from PD/CC0 sources without a known
+ * author also have most fields blank — that's fine, they don't need credit.
+ */
+export interface FragmentImageMeta {
+  /** Where the image came from (museum, Unsplash, etc.). */
+  source?: "met" | "wikimedia" | "europeana" | "openverse" | "unsplash"
+  /** Licence under which we display it. Drives whether we can cache, attribute, etc. */
+  license?: "public-domain" | "cc0" | "unsplash-license"
+  /** Author/artist/photographer name, for the credit line. */
+  author?: string
+  /** Link to the author's profile (e.g. Unsplash photographer page). */
+  authorUrl?: string
+  /** Link to the work's page on the source site (e.g. Met object page). */
+  sourceUrl?: string
+  /** If true, we MUST show a visible credit (Unsplash). PD/CC0 = false. */
+  requiresAttribution?: boolean
+  /**
+   * Unsplash-only: the API URL we must ping when the image is "used"
+   * (hover > 2s, click, share). Required by Unsplash terms.
+   * Empty for any other source.
+   */
+  downloadLocation?: string
+}
+
+/**
  * A visual scrap pinned to the collage board (an object, a quote, a place, etc.),
  * associated with one character and positioned freely on the canvas.
  */
@@ -106,6 +138,8 @@ export interface Fragment {
   /** Position on the board, in percent (0–100) plus a rotation in degrees. */
   position: { x: number; y: number; rotation: number }
   size: FragmentSize
+  /** Image source/licence info — only present for image fragments (see FragmentImageMeta). */
+  imageMeta?: FragmentImageMeta
 }
 
 /**
