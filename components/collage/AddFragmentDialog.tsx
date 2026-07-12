@@ -64,7 +64,7 @@ export function AddFragmentDialog({
     setSaving(true)
     setError(null)
     try {
-      const { x, y } = findOptimalPosition(existingFragments)
+      const { x, y } = findOptimalPosition(existingFragments.map((f) => f.position))
       const rotation = Math.round(Math.random() * 16 - 8) // -8..+8
 
       const newFragment: Fragment = {

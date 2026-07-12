@@ -214,10 +214,17 @@ export async function generateBookData(input: GenerateBookInput): Promise<AiBook
   return { book, characters, relationships }
 }
 
-/** Validează fiecare element dintr-un array și păstrează doar pe cele valide. */
-function keepValid<T>(value: unknown, schema: z.ZodType<T>): T[] {
+/**
+ * Validează fiecare element dintr-un array și păstrează doar pe cele valide.
+ *
+ * Tipăm cu `z.output<S>` (nu cu un `T` dedus din `z.ZodType<T>`): pentru scheme
+ * cu `.default()`, tipul de INTRARE are câmpuri opționale, iar cel de IEȘIRE le
+ * are completate (obligatorii). `keepValid` întoarce date DEJA parsate, deci
+ * vrem tipul de ieșire — altfel nu s-ar potrivi cu `AiBookResult` (z.infer).
+ */
+function keepValid<S extends z.ZodTypeAny>(value: unknown, schema: S): z.output<S>[] {
   if (!Array.isArray(value)) return []
-  const out: T[] = []
+  const out: z.output<S>[] = []
   for (const item of value) {
     const result = schema.safeParse(item)
     if (result.success) out.push(result.data)

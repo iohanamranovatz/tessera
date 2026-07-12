@@ -25,6 +25,11 @@ const RequestSchema = z.object({
       }),
     )
     .default([]),
+  // Pozițiile fragmentelor deja pe board (0–100). Clientul le trimite ca noile
+  // imagini să nu se suprapună peste ce e deja plasat — vezi image-generation.ts.
+  existingPositions: z
+    .array(z.object({ x: z.number(), y: z.number() }))
+    .default([]),
 })
 
 export async function POST(request: Request) {
@@ -45,7 +50,11 @@ export async function POST(request: Request) {
 
   // 2. Construim fragmentele (cheamă căutarea federată de imagini).
   try {
-    const fragments = await buildImageFragments(input.characters, input.bookId)
+    const fragments = await buildImageFragments(
+      input.characters,
+      input.bookId,
+      input.existingPositions,
+    )
     return NextResponse.json({ fragments })
   } catch (err) {
     const message = err instanceof Error ? err.message : "Eroare la căutarea imaginilor."

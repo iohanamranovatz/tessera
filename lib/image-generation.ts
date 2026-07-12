@@ -36,18 +36,27 @@ export function startImageGeneration(bookId: string, work: PendingImageWork): vo
   active.add(bookId)
 
   void (async () => {
+    // Pozițiile a tot ce am plasat până acum. Le trimitem la fiecare cerere
+    // următoare, altfel serverul (care vede un singur personaj o dată) ar pune
+    // fiecare primă poză în centru → toate se suprapun. Vezi buildImageFragments.
+    const placedPositions: Array<{ x: number; y: number }> = []
     try {
       for (const character of work.characters) {
         try {
           const res = await fetch("/api/generate-fragments", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ bookId, characters: [character] }),
+            body: JSON.stringify({
+              bookId,
+              characters: [character],
+              existingPositions: placedPositions,
+            }),
           })
           const json = await res.json()
           if (res.ok && Array.isArray(json.fragments)) {
             for (const fragment of json.fragments as Fragment[]) {
               await createFragment(fragment)
+              placedPositions.push({ x: fragment.position.x, y: fragment.position.y })
             }
           }
         } catch {
