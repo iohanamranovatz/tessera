@@ -32,7 +32,7 @@ export default function TermsPage() {
         </h2>
 
         <p>
-          By using Tessera (the service at <code>[DOMENIU]</code>), you accept
+          By using Tessera, you accept
           these terms. They are deliberately short. If anything is unclear,
           please ask before relying on it.
         </p>
@@ -59,7 +59,7 @@ export default function TermsPage() {
         <p>
           Tessera uses an AI model (currently Google Gemini) to suggest
           characters, relationships and image queries. AI output{" "}
-          <strong>can be wrong</strong> — names misspelled, plot details
+          <strong>can be wrong</strong> names misspelled, plot details
           confused, occasional spoilers from later chapters. Always check
           against the book itself before treating an AI suggestion as fact.
           You are responsible for the content you save.
@@ -88,9 +88,9 @@ export default function TermsPage() {
         </h3>
         <p>
           If you believe content displayed in Tessera infringes your
-          copyright, send a notice to{" "}
+          copyright, send a notice to{""}
           <a className="italic underline" href="mailto:[EMAIL]">
-            [EMAIL]
+            mranovatzbrigi@gmail.com
           </a>{" "}
           including:
         </p>
@@ -124,7 +124,7 @@ export default function TermsPage() {
         <p>
           For anything else, write to{" "}
           <a className="italic underline" href="mailto:[EMAIL]">
-            [EMAIL]
+            mranovatzbrigi@gmail.com
           </a>
           .
         </p>
@@ -139,7 +139,7 @@ export default function TermsPage() {
         </h2>
 
         <p>
-          Folosind Tessera (serviciul de la <code>[DOMENIU]</code>) accepți
+          Folosind Tessera accepți
           acești termeni. Sunt scurți intenționat. Dacă ceva nu e clar,
           întreabă înainte să te bazezi pe el.
         </p>
@@ -201,7 +201,7 @@ export default function TermsPage() {
           Dacă crezi că un conținut afișat în Tessera îți încalcă
           copyright-ul, trimite o sesizare la{" "}
           <a className="italic underline" href="mailto:[EMAIL]">
-            [EMAIL]
+            mranovatzbrigi@gmail.com
           </a>{" "}
           cu:
         </p>
@@ -235,7 +235,7 @@ export default function TermsPage() {
         <p>
           Pentru orice altceva, scrie la{" "}
           <a className="italic underline" href="mailto:[EMAIL]">
-            [EMAIL]
+            mranovatzbrigi@gmail.com
           </a>
           .
         </p>

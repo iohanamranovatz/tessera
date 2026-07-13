@@ -216,9 +216,13 @@ function AddCharacterForm({
   const [name, setName] = useState("")
   const [nicknames, setNicknames] = useState("")
   const [tags, setTags] = useState("")
+  const [imageTerms, setImageTerms] = useState("")
+  const [symbol, setSymbol] = useState("")
   const [color, setColor] = useState(PALETTE[0].value)
 
-  const canAdd = name.trim().length > 0
+  // Nume ȘI termeni de imagini sunt obligatorii — fără keywords nu s-ar căuta
+  // poze, iar personajul ar rămâne fără fragmente vizuale pe board.
+  const canAdd = name.trim().length > 0 && imageTerms.trim().length > 0
 
   /** Transformă un text „a, b, c" într-un array curat ["a", "b", "c"]. */
   function splitList(text: string): string[] {
@@ -236,6 +240,11 @@ function AddCharacterForm({
       nicknames: splitList(nicknames),
       tags: splitList(tags),
       color,
+      // Termenii de căutare imagini → board-ul aduce poze reale, exact ca la
+      // personajele AI. Gol dacă userul nu completează (atunci nu apar poze).
+      imageQueries: splitList(imageTerms),
+      // Simbol opțional → devine un fragment „symbol" pe board la salvare.
+      symbol: symbol.trim() || undefined,
     })
   }
 
@@ -253,6 +262,24 @@ function AddCharacterForm({
         value={tags}
         onChange={setTags}
         placeholder="passionate, military, impulsive"
+      />
+      <div>
+        <FormInput
+          label="Image search terms (required, comma-separated)"
+          value={imageTerms}
+          onChange={setImageTerms}
+          placeholder="foggy London street, brass magnifying glass"
+        />
+        <p className="mt-1 text-[11px] italic text-muted-foreground/70">
+          Required — atmosphere, objects or places (not the character’s name).
+          These fetch the photos on the board.
+        </p>
+      </div>
+      <FormInput
+        label="Symbol (optional)"
+        value={symbol}
+        onChange={setSymbol}
+        placeholder="∞  ·  🕯  ·  ♞"
       />
 
       {/* Selector de culoare */}

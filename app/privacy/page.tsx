@@ -38,7 +38,7 @@ export default function PrivacyPage() {
         </h2>
 
         <p>
-          Tessera is a small, personal moodboard for readers — a quiet place to
+          Tessera is a small, personal moodboard for readers, a quiet place to
           keep track of characters, nicknames and relationships in the books
           you read. This page explains, in plain language, what data we handle
           and what we don't.
@@ -51,11 +51,6 @@ export default function PrivacyPage() {
           tags, relationships between characters, and the visual fragments
           (text or images) you pin to the collage board.
         </p>
-        <p>
-          We do <strong>not</strong> ask for your name, email or any account
-          information. There are no user accounts at this time.
-        </p>
-
         <h3 className="font-serif text-xl italic">How we store it</h3>
         <p>
           Your literary content is stored in a managed PostgreSQL database
@@ -94,11 +89,7 @@ export default function PrivacyPage() {
             data, no cookies, no cross-site tracking.
           </li>
         </ul>
-        <p>
-          We do <strong>not</strong> sell your data, and we do not share it
-          with anyone for advertising or marketing.
-        </p>
-
+      
         <h3 className="font-serif text-xl italic">Cookies</h3>
         <p>
           Tessera does not set any tracking cookies of its own. Vercel
@@ -113,16 +104,14 @@ export default function PrivacyPage() {
         </p>
         <p>
           To delete the content you created in Tessera, open the in-app
-          settings and use <em>“Delete all my data”</em>. (This feature ships
-          with public launch — until then, write to us and we will erase it
-          manually.)
+          settings and use <em>“Delete all my data”</em>.
         </p>
 
         <h3 className="font-serif text-xl italic">Contact</h3>
         <p>
           For any privacy question or request, write to{" "}
           <a className="italic underline" href="mailto:[EMAIL]">
-            [EMAIL]
+            mranovatzbrigi@gmail.com
           </a>
           .
         </p>
@@ -156,15 +145,11 @@ export default function PrivacyPage() {
           etichete, relații dintre personaje, și fragmentele vizuale (text sau
           imagini) pe care le pui pe board.
         </p>
-        <p>
-          Nu îți cerem <strong>numele, email-ul sau alte date de cont</strong>.
-          Aplicația nu are deocamdată conturi de utilizator.
-        </p>
 
         <h3 className="font-serif text-xl italic">Unde stocăm</h3>
         <p>
           Conținutul tău literar e stocat într-o bază de date PostgreSQL găzduită
-          de <strong>Supabase</strong>. Aplicația în sine rulează pe{" "}
+          de <strong>Supabase</strong>. Aplicația în sine rulează pe
           <strong>Vercel</strong>. Ambii furnizori pot păstra log-uri tehnice
           (timpi de cerere, urme de erori) ca parte din funcționarea lor.
         </p>
@@ -220,15 +205,13 @@ export default function PrivacyPage() {
         <p>
           Pentru a șterge conținutul creat în Tessera, deschide setările
           aplicației și folosește <em>„Șterge toate datele mele"</em>.
-          (Funcționalitatea apare la lansare publică — până atunci, scrie-ne
-          și o facem manual.)
         </p>
 
         <h3 className="font-serif text-xl italic">Contact</h3>
         <p>
-          Pentru orice întrebare sau cerere legată de date, scrie la{" "}
+          Pentru orice întrebare sau cerere legată de date, scrie la {""}
           <a className="italic underline" href="mailto:[EMAIL]">
-            [EMAIL]
+            mranovatzbrigi@gmail.com
           </a>
           .
         </p>

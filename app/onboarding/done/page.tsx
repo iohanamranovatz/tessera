@@ -13,9 +13,15 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { createBook, createCharacter, createRelationship } from "@/hooks/use-tessera-data"
-import type { Book, Character, Relationship } from "@/types"
+import {
+  createBook,
+  createCharacter,
+  createRelationship,
+  createFragment,
+} from "@/hooks/use-tessera-data"
+import type { Book, Character, Fragment, Relationship } from "@/types"
 import { setPendingImages } from "@/lib/pending-images"
+import { findOptimalPosition, type Point } from "@/lib/positioning"
 import { useOnboarding } from "../OnboardingContext"
 
 /** Culoare implicită pentru cotorul cărții dacă nu există niciun personaj. */
@@ -98,6 +104,27 @@ export default function DonePage() {
           revealedInChapter: draft.revealedInChapter,
         }
         await createRelationship(relationship)
+      }
+
+      // 3.5. Simbolurile introduse manual devin fragmente „symbol" pe board.
+      //      Le creăm ACUM (după personaje: fragmentele au cheie străină spre ele).
+      //      Le împrăștiem cu findOptimalPosition ca să nu se suprapună.
+      const symbolPositions: Point[] = []
+      for (const draft of approvedCharacters) {
+        const symbol = draft.symbol?.trim()
+        if (!symbol) continue
+        const pos = findOptimalPosition(symbolPositions)
+        symbolPositions.push(pos)
+        const fragment: Fragment = {
+          id: crypto.randomUUID(),
+          bookId,
+          characterId: draft.id,
+          type: "symbol",
+          content: symbol,
+          position: { x: pos.x, y: pos.y, rotation: 0 },
+          size: "medium",
+        }
+        await createFragment(fragment)
       }
 
       // 4. Imaginile durează ~30s de căutat — NU așteptăm aici. Lăsăm un bilet cu

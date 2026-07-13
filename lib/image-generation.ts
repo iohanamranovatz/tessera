@@ -13,6 +13,7 @@
  */
 
 import { createFragment } from "@/hooks/use-tessera-data"
+import { supabase } from "@/lib/supabase/client"
 import type { PendingImageWork } from "@/lib/pending-images"
 import type { Fragment } from "@/types"
 
@@ -40,6 +41,25 @@ export function startImageGeneration(bookId: string, work: PendingImageWork): vo
     // următoare, altfel serverul (care vede un singur personaj o dată) ar pune
     // fiecare primă poză în centru → toate se suprapun. Vezi buildImageFragments.
     const placedPositions: Array<{ x: number; y: number }> = []
+
+    // Pornim de la pozițiile fragmentelor DEJA în DB pentru cartea asta (ex:
+    // simbolurile create manual la salvare). Fără asta, prima imagine ar cădea
+    // fix în centru, peste simbol. Cu ele, findOptimalPosition le ocolește.
+    try {
+      const { data: existing } = await supabase
+        .from("fragments")
+        .select("position")
+        .eq("book_id", bookId)
+      for (const row of existing ?? []) {
+        const p = (row as { position?: { x?: number; y?: number } }).position
+        if (p && typeof p.x === "number" && typeof p.y === "number") {
+          placedPositions.push({ x: p.x, y: p.y })
+        }
+      }
+    } catch {
+      // dacă query-ul pică, continuăm cu lista goală (cel mai rău caz: overlap)
+    }
+
     try {
       for (const character of work.characters) {
         try {

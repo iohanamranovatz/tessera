@@ -38,7 +38,7 @@ import {
 export default function LibraryPage() {
   const router = useRouter()
   const { data: books, loading, refetch } = useBooks()
-  const { user, signOut } = useAuth()
+  const { signOut } = useAuth()
 
   async function handleSignOut() {
     await signOut()
@@ -79,11 +79,6 @@ export default function LibraryPage() {
           tessera · library
         </h1>
         <div className="flex items-center gap-2 sm:gap-3">
-          {user?.email && (
-            <span className="hidden font-serif text-xs italic text-muted-foreground sm:inline">
-              {user.email}
-            </span>
-          )}
           <button
             onClick={() => router.push("/onboarding")}
             className="flex items-center gap-2 rounded border border-border px-3 py-1.5 font-serif text-xs text-foreground/90 transition-colors hover:bg-secondary/50 sm:text-sm"

@@ -18,7 +18,10 @@ export interface Point {
  */
 export function findOptimalPosition(existing: Point[]): Point {
   const MARGIN = 10 // keep away from the very edges
-  const SAMPLES = 50
+  // Câte poziții candidat testăm. Mai multe = spread mai bun pe board-uri
+  // aglomerate (10+ fragmente), unde 50 de mostre mai scăpau câte o suprapunere.
+  // Costul e trivial (câteva mii de operații per plasare).
+  const SAMPLES = 250
 
   // Nothing placed yet → just use the centre.
   if (existing.length === 0) {

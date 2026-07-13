@@ -35,9 +35,13 @@ export interface OnboardingCharacterDraft {
   status?: CharacterStatus
   /** Primul capitol în care apare (pentru filtrul anti-spoiler). */
   appearsInChapter?: number
-  /** Căutări vizuale propuse de AI — folosite la salvare ca să aducem imagini
-   *  reale pe board (vezi /api/generate-fragments). */
+  /** Căutări vizuale — folosite la salvare ca să aducem imagini reale pe board
+   *  (vezi /api/generate-fragments). Vin de la AI SAU le scrie userul manual în
+   *  formularul de personaj (câmpul „Image search terms"). */
   imageQueries?: string[]
+  /** Simbol/glif opțional (ex: „∞", „🕯") introdus manual. La salvare devine un
+   *  fragment de tip „symbol" pe board. */
+  symbol?: string
   /** Aprobat pentru salvare? La review, userul poate respinge personaje propuse de
    *  AI. `undefined` sau `true` = aprobat; `false` = respins (nu se salvează). */
   approved?: boolean
