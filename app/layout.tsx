@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Playfair_Display, Lora } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { Footer } from '@/components/layout/Footer'
+import { AuthProvider } from '@/context/AuthContext'
 import './globals.css'
 
 const playfair = Playfair_Display({
@@ -77,8 +78,10 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${playfair.variable} ${lora.variable} bg-background`}>
       <body className="font-sans antialiased min-h-screen flex flex-col">
-        <div className="flex-1">{children}</div>
-        <Footer />
+        <AuthProvider>
+          <div className="flex-1">{children}</div>
+          <Footer />
+        </AuthProvider>
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>

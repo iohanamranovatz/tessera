@@ -15,6 +15,11 @@ import { z } from "zod"
 import { generateBookData } from "@/lib/book-ai"
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit"
 
+// Generarea cu Gemini poate depăși timeout-ul default de 10s al funcțiilor
+// serverless pe Vercel. Ridicăm limita ca ruta să nu fie omorâtă pe deploy.
+// 60 = maximul pe planul Hobby; pe Pro poți urca până la 300.
+export const maxDuration = 60
+
 // Validăm CE PRIMIM de la browser (nu avem încredere oarbă în body).
 const RequestSchema = z.object({
   title: z.string().min(1, "Titlul e obligatoriu."),

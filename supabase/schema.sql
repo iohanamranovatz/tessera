@@ -7,7 +7,10 @@ create table if not exists books (
   language        text,
   total_chapters  integer,
   current_chapter integer,
-  cover_color     text
+  cover_color     text,
+  -- Proprietarul cărții. Vezi migrations/003_add_auth_ownership.sql.
+  -- default auth.uid() → inserturile primesc automat utilizatorul curent.
+  user_id         uuid references auth.users(id) on delete cascade default auth.uid()
 );
 
 create table if not exists characters (
@@ -64,6 +67,7 @@ alter table rate_limits enable row level security;
 create index if not exists idx_characters_book    on characters(book_id);
 create index if not exists idx_relationships_book on relationships(book_id);
 create index if not exists idx_fragments_book      on fragments(book_id);
+create index if not exists idx_books_user          on books(user_id);
 
 
 alter table books         enable row level security;
@@ -71,7 +75,22 @@ alter table characters    enable row level security;
 alter table relationships enable row level security;
 alter table fragments     enable row level security;
 
-create policy "anon full access - books"         on books         for all using (true) with check (true);
-create policy "anon full access - characters"    on characters    for all using (true) with check (true);
-create policy "anon full access - relationships" on relationships for all using (true) with check (true);
-create policy "anon full access - fragments"     on fragments     for all using (true) with check (true);
+-- Conturi: fiecare user vede/scrie DOAR cărțile lui; tabelele-copil moștenesc
+-- proprietarul prin cartea-părinte. Vezi migrations/003_add_auth_ownership.sql.
+create policy "own books" on books
+  for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+create policy "own characters" on characters
+  for all
+  using (exists (select 1 from books b where b.id = characters.book_id and b.user_id = auth.uid()))
+  with check (exists (select 1 from books b where b.id = characters.book_id and b.user_id = auth.uid()));
+
+create policy "own relationships" on relationships
+  for all
+  using (exists (select 1 from books b where b.id = relationships.book_id and b.user_id = auth.uid()))
+  with check (exists (select 1 from books b where b.id = relationships.book_id and b.user_id = auth.uid()));
+
+create policy "own fragments" on fragments
+  for all
+  using (exists (select 1 from books b where b.id = fragments.book_id and b.user_id = auth.uid()))
+  with check (exists (select 1 from books b where b.id = fragments.book_id and b.user_id = auth.uid()));

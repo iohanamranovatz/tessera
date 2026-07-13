@@ -1,0 +1,103 @@
+"use client"
+
+/**
+ * AuthContext — sesiunea de utilizator, pusă la dispoziția întregii aplicații.
+ *
+ * Folosește Supabase Auth (email + parolă) prin clientul de browser din
+ * `lib/supabase/client.ts`. Supabase-js păstrează singur sesiunea în
+ * localStorage și atașează automat JWT-ul la fiecare cerere spre DB — de aceea
+ * politicile RLS (auth.uid()) filtrează datele fără cod suplimentar în hooks.
+ *
+ * Expune:
+ *   { user, session, loading, signIn, signUp, signOut }
+ */
+
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from "react"
+import type { Session, User } from "@supabase/supabase-js"
+import { supabase } from "@/lib/supabase/client"
+
+interface AuthState {
+  /** Utilizatorul curent, sau null dacă nimeni nu e logat. */
+  user: User | null
+  /** Sesiunea completă (token-uri etc.), sau null. */
+  session: Session | null
+  /** True cât timp verificăm sesiunea inițială — evită flash-ul de „nelogat". */
+  loading: boolean
+  /** Logare cu email + parolă. Aruncă Error cu mesaj lizibil la eșec. */
+  signIn: (email: string, password: string) => Promise<void>
+  /**
+   * Înregistrare cu email + parolă. Aruncă Error la eșec.
+   * Returnează `needsConfirmation: true` dacă proiectul Supabase are activă
+   * confirmarea prin email (atunci nu există sesiune până la click pe link).
+   */
+  signUp: (email: string, password: string) => Promise<{ needsConfirmation: boolean }>
+  /** Deconectare. */
+  signOut: () => Promise<void>
+}
+
+const AuthContext = createContext<AuthState | undefined>(undefined)
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [session, setSession] = useState<Session | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    // 1. Sesiunea existentă la încărcarea paginii.
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session)
+      setLoading(false)
+    })
+
+    // 2. Ascultăm schimbările (login, logout, refresh de token) și în alte taburi.
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      setSession(newSession)
+    })
+
+    return () => sub.subscription.unsubscribe()
+  }, [])
+
+  async function signIn(email: string, password: string) {
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) throw new Error(error.message)
+  }
+
+  async function signUp(email: string, password: string) {
+    const { data, error } = await supabase.auth.signUp({ email, password })
+    if (error) throw new Error(error.message)
+    // Fără sesiune imediată ⇒ Supabase așteaptă confirmarea pe email.
+    return { needsConfirmation: !data.session }
+  }
+
+  async function signOut() {
+    const { error } = await supabase.auth.signOut()
+    if (error) throw new Error(error.message)
+  }
+
+  return (
+    <AuthContext.Provider
+      value={{
+        user: session?.user ?? null,
+        session,
+        loading,
+        signIn,
+        signUp,
+        signOut,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  )
+}
+
+/** Hook de acces la starea de autentificare. Aruncă dacă e folosit în afara provider-ului. */
+export function useAuth(): AuthState {
+  const ctx = useContext(AuthContext)
+  if (!ctx) throw new Error("useAuth trebuie folosit în interiorul <AuthProvider>.")
+  return ctx
+}

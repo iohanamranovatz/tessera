@@ -15,6 +15,13 @@ import { z } from "zod"
 import { buildImageFragments } from "@/lib/images/character-fragments"
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit"
 
+// Căutarea federată de imagini lovește 4-5 API-uri externe (Met, Europeana,
+// Wikimedia, Openverse, Unsplash) și poate depăși cu mult timeout-ul DEFAULT de
+// 10s al funcțiilor serverless pe Vercel. Fără asta, pe deploy funcția e omorâtă
+// înainte să întoarcă imaginile → moodboard gol (deși local, fără timeout, merge).
+// 60 = maximul permis pe planul Hobby; pe Pro poți urca până la 300.
+export const maxDuration = 60
+
 const RequestSchema = z.object({
   bookId: z.string().min(1, "bookId e obligatoriu."),
   characters: z

@@ -18,9 +18,11 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Plus } from "lucide-react"
+import { Plus, LogOut } from "lucide-react"
 import { useBooks, deleteBook } from "@/hooks/use-tessera-data"
 import { BookCard } from "@/components/library/BookCard"
+import { RequireAuth } from "@/components/auth/RequireAuth"
+import { useAuth } from "@/context/AuthContext"
 import type { Book } from "@/types"
 import {
   AlertDialog,
@@ -36,6 +38,12 @@ import {
 export default function LibraryPage() {
   const router = useRouter()
   const { data: books, loading, refetch } = useBooks()
+  const { user, signOut } = useAuth()
+
+  async function handleSignOut() {
+    await signOut()
+    router.replace("/login")
+  }
 
   // Cartea pe care urmează să o ștergem, sau null dacă dialogul e închis.
   const [pendingDelete, setPendingDelete] = useState<Book | null>(null)
@@ -60,22 +68,39 @@ export default function LibraryPage() {
   }
 
   return (
+    <RequireAuth>
     <div className="min-h-screen paper-texture">
       {/* Header */}
       <header
-        className="flex items-center justify-between bg-accent px-4 py-3 sm:px-6"
+        className="flex items-center justify-between gap-3 bg-accent px-4 py-3 sm:px-6"
         style={{ borderBottom: "0.5px solid var(--topbar-border)" }}
       >
         <h1 className="font-serif text-lg italic tracking-wide text-primary sm:text-xl">
           tessera · library
         </h1>
-        <button
-          onClick={() => router.push("/onboarding")}
-          className="flex items-center gap-2 rounded border border-border px-3 py-1.5 font-serif text-xs text-foreground/90 transition-colors hover:bg-secondary/50 sm:text-sm"
-        >
-          <Plus className="h-3.5 w-3.5" />
-          new book
-        </button>
+        <div className="flex items-center gap-2 sm:gap-3">
+          {user?.email && (
+            <span className="hidden font-serif text-xs italic text-muted-foreground sm:inline">
+              {user.email}
+            </span>
+          )}
+          <button
+            onClick={() => router.push("/onboarding")}
+            className="flex items-center gap-2 rounded border border-border px-3 py-1.5 font-serif text-xs text-foreground/90 transition-colors hover:bg-secondary/50 sm:text-sm"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            new book
+          </button>
+          <button
+            onClick={handleSignOut}
+            title="Sign out"
+            aria-label="Sign out"
+            className="flex items-center gap-2 rounded border border-border px-3 py-1.5 font-serif text-xs text-foreground/90 transition-colors hover:bg-secondary/50 sm:text-sm"
+          >
+            <LogOut className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">sign out</span>
+          </button>
+        </div>
       </header>
 
       {/* Grid */}
@@ -154,5 +179,6 @@ export default function LibraryPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+    </RequireAuth>
   )
 }

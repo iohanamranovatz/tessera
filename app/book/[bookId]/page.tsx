@@ -22,6 +22,7 @@ import { TabNavigation, type Tab } from "@/components/layout/TabNavigation"
 import { CollageBoard } from "@/components/collage/CollageBoard"
 import { CharactersView } from "@/components/characters/CharactersView"
 import { RelationsView } from "@/components/relations/RelationsView"
+import { RequireAuth } from "@/components/auth/RequireAuth"
 
 const VALID_TABS: Tab[] = ["collage", "characters", "relations"]
 
@@ -58,8 +59,10 @@ function BookScreen() {
 
 export default function BookPage() {
   return (
-    <Suspense fallback={null}>
-      <BookScreen />
-    </Suspense>
+    <RequireAuth>
+      <Suspense fallback={null}>
+        <BookScreen />
+      </Suspense>
+    </RequireAuth>
   )
 }

@@ -11,6 +11,7 @@
  */
 
 import { usePathname } from "next/navigation"
+import { RequireAuth } from "@/components/auth/RequireAuth"
 import { OnboardingProvider } from "./OnboardingContext"
 
 /** Cei 4 pași, în ordine. `slug` se potrivește cu numele folderului din /onboarding. */
@@ -29,7 +30,8 @@ export default function OnboardingLayout({ children }: { children: React.ReactNo
   const activeStep = foundIndex === -1 ? 0 : foundIndex
 
   return (
-    <OnboardingProvider>
+    <RequireAuth>
+      <OnboardingProvider>
       <div className="flex min-h-screen flex-col bg-background paper-texture">
         {/* Stepper */}
         <header className="px-8 pt-12">
@@ -60,6 +62,7 @@ export default function OnboardingLayout({ children }: { children: React.ReactNo
         {/* Ecranul curent */}
         <div className="flex flex-1 flex-col">{children}</div>
       </div>
-    </OnboardingProvider>
+      </OnboardingProvider>
+    </RequireAuth>
   )
 }
