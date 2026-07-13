@@ -103,14 +103,29 @@ export default function PrivacyPage() {
           to lodge a complaint with your local data-protection authority.
         </p>
         <p>
-          To delete the content you created in Tessera, open the in-app
-          settings and use <em>“Delete all my data”</em>.
+          Open your{" "}
+          <Link className="italic underline" href="/library">
+            library
+          </Link>{" "}
+          and, at the bottom of the page, you have two options:
         </p>
+        <ul className="list-disc space-y-1 pl-6">
+          <li>
+            <em>“Delete all my data”</em> — erases every book you made (with its
+            characters, relationships and fragments), but keeps your account so
+            you can start fresh.
+          </li>
+          <li>
+            <em>“Delete my account”</em> — permanently deletes your account{" "}
+            <strong>and</strong> everything in it, then signs you out. This is
+            full erasure and cannot be undone.
+          </li>
+        </ul>
 
         <h3 className="font-serif text-xl italic">Contact</h3>
         <p>
           For any privacy question or request, write to{" "}
-          <a className="italic underline" href="mailto:[EMAIL]">
+          <a className="italic underline" href="mailto:mranovatzbrigi@gmail.com">
             mranovatzbrigi@gmail.com
           </a>
           .
@@ -203,14 +218,29 @@ export default function PrivacyPage() {
           (ANSPDCP în România).
         </p>
         <p>
-          Pentru a șterge conținutul creat în Tessera, deschide setările
-          aplicației și folosește <em>„Șterge toate datele mele"</em>.
+          Deschide{" "}
+          <Link className="italic underline" href="/library">
+            biblioteca
+          </Link>{" "}
+          și, în josul paginii, ai două opțiuni:
         </p>
+        <ul className="list-disc space-y-1 pl-6">
+          <li>
+            <em>„Delete all my data"</em> — șterge toate cărțile create (cu
+            personaje, relații și fragmente), dar păstrează contul ca s-o poți
+            lua de la capăt.
+          </li>
+          <li>
+            <em>„Delete my account"</em> — șterge definitiv contul{" "}
+            <strong>și</strong> tot ce conține, apoi te deconectează. E ștergerea
+            completă și nu poate fi anulată.
+          </li>
+        </ul>
 
         <h3 className="font-serif text-xl italic">Contact</h3>
         <p>
           Pentru orice întrebare sau cerere legată de date, scrie la {""}
-          <a className="italic underline" href="mailto:[EMAIL]">
+          <a className="italic underline" href="mailto:mranovatzbrigi@gmail.com">
             mranovatzbrigi@gmail.com
           </a>
           .

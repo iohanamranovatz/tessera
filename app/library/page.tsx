@@ -9,17 +9,20 @@
  *
  * Each card has a small × button that opens a confirmation dialog. Confirming
  * deletes the book + all its characters/relationships/fragments (cascade via
- * the FK constraints in supabase/schema.sql). This is our minimal GDPR
- * "right to erasure" affordance until per-user auth lands.
+ * the FK constraints in the schema).
  *
- * Data comes from useBooks() (Supabase). While loading we show a few skeleton
- * cards so the page doesn't flash empty.
+ * At the bottom, a "Delete all my data" danger action wipes every book the
+ * signed-in user owns — our GDPR "right to erasure" affordance, matching the
+ * promise on /privacy.
+ *
+ * Data comes from useBooks() (Supabase, scoped to the current user by RLS).
+ * While loading we show a few skeleton cards so the page doesn't flash empty.
  */
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Plus, LogOut } from "lucide-react"
-import { useBooks, deleteBook } from "@/hooks/use-tessera-data"
+import { useBooks, deleteBook, deleteAllMyData } from "@/hooks/use-tessera-data"
 import { BookCard } from "@/components/library/BookCard"
 import { RequireAuth } from "@/components/auth/RequireAuth"
 import { useAuth } from "@/context/AuthContext"
@@ -38,7 +41,7 @@ import {
 export default function LibraryPage() {
   const router = useRouter()
   const { data: books, loading, refetch } = useBooks()
-  const { signOut } = useAuth()
+  const { signOut, deleteAccount } = useAuth()
 
   async function handleSignOut() {
     await signOut()
@@ -64,6 +67,47 @@ export default function LibraryPage() {
       setDeleteError(err instanceof Error ? err.message : "Couldn't delete the book.")
     } finally {
       setDeleting(false)
+    }
+  }
+
+  // --- „Delete all my data" (GDPR right to erasure, promis în /privacy) ---
+  const [wipeOpen, setWipeOpen] = useState(false)
+  const [wiping, setWiping] = useState(false)
+  const [wipeError, setWipeError] = useState<string | null>(null)
+
+  async function confirmWipe() {
+    if (wiping) return
+    setWiping(true)
+    setWipeError(null)
+    try {
+      await deleteAllMyData()
+      setWipeOpen(false)
+      await refetch()
+    } catch (err) {
+      setWipeError(err instanceof Error ? err.message : "Couldn't delete your data.")
+    } finally {
+      setWiping(false)
+    }
+  }
+
+  // --- „Delete my account" (GDPR erasure real: cont + tot conținutul) ---
+  const [accountOpen, setAccountOpen] = useState(false)
+  const [deletingAccount, setDeletingAccount] = useState(false)
+  const [accountError, setAccountError] = useState<string | null>(null)
+
+  async function confirmDeleteAccount() {
+    if (deletingAccount) return
+    setDeletingAccount(true)
+    setAccountError(null)
+    try {
+      await deleteAccount()
+      // Contul a dispărut — plecăm la login (nu mai avem sesiune).
+      router.replace("/login")
+    } catch (err) {
+      setAccountError(
+        err instanceof Error ? err.message : "Couldn't delete your account.",
+      )
+      setDeletingAccount(false)
     }
   }
 
@@ -134,6 +178,38 @@ export default function LibraryPage() {
             ))}
           </div>
         )}
+
+        {/* Danger zone. „Delete all my data" = doar conținutul (contul rămâne).
+            „Delete my account" = GDPR erasure real: cont + tot conținutul. */}
+        {!loading && (
+          <div className="mt-16 flex flex-col items-center gap-3 border-t border-border pt-8 text-center">
+            {books.length > 0 && (
+              <>
+                <p className="font-serif text-xs italic text-muted-foreground">
+                  Want to remove everything you’ve created here?
+                </p>
+                <button
+                  onClick={() => {
+                    setWipeError(null)
+                    setWipeOpen(true)
+                  }}
+                  className="font-serif text-sm italic text-destructive underline-offset-4 transition-colors hover:underline"
+                >
+                  Delete all my data
+                </button>
+              </>
+            )}
+            <button
+              onClick={() => {
+                setAccountError(null)
+                setAccountOpen(true)
+              }}
+              className="mt-2 font-serif text-xs italic text-muted-foreground underline-offset-4 transition-colors hover:text-destructive hover:underline"
+            >
+              Delete my account
+            </button>
+          </div>
+        )}
       </main>
 
       {/* Confirmation dialog. AlertDialog blochează interacțiunea cu restul
@@ -169,6 +245,87 @@ export default function LibraryPage() {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {deleting ? "Deleting…" : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* „Delete all my data" — confirmarea GDPR right to erasure. */}
+      <AlertDialog
+        open={wipeOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setWipeOpen(false)
+            setWipeError(null)
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-serif italic">
+              Delete all your data?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently removes <em>every book</em> you’ve created, along
+              with all their characters, relationships, and fragments. Your
+              account stays, but its library will be empty. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {wipeError && (
+            <p className="text-sm italic text-destructive">{wipeError}</p>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={wiping}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault()
+                void confirmWipe()
+              }}
+              disabled={wiping}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {wiping ? "Deleting…" : "Delete everything"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* „Delete my account" — GDPR erasure real: cont + tot conținutul. */}
+      <AlertDialog
+        open={accountOpen}
+        onOpenChange={(open) => {
+          if (!open && !deletingAccount) {
+            setAccountOpen(false)
+            setAccountError(null)
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-serif italic">
+              Delete your account?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently deletes <em>your account</em> and{" "}
+              <em>everything in it</em> — all your books, characters,
+              relationships and fragments. You will be signed out and cannot log
+              back in with this account. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {accountError && (
+            <p className="text-sm italic text-destructive">{accountError}</p>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingAccount}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault()
+                void confirmDeleteAccount()
+              }}
+              disabled={deletingAccount}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deletingAccount ? "Deleting…" : "Delete my account"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

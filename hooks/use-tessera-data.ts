@@ -293,6 +293,26 @@ export async function deleteBook(bookId: string): Promise<void> {
 }
 
 /**
+ * Șterge TOATE datele utilizatorului curent — răspunsul GDPR „right to erasure"
+ * promis în /privacy. Șterge toate cărțile lui (personajele, relațiile și
+ * fragmentele dispar în cascadă prin `on delete cascade`).
+ *
+ * Contul de autentificare în sine (rândul din auth.users) rămâne — ștergerea lui
+ * cere privilegii de admin (service-role), pe care clientul nu le are. Userul se
+ * poate deconecta după. Aruncă la eroare ca apelantul să poată afișa un mesaj.
+ */
+export async function deleteAllMyData(): Promise<void> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) throw new Error("You must be signed in to delete your data.")
+  // RLS restrânge oricum la rândurile proprii; filtrăm explicit pe user_id ca
+  // PostgREST să accepte delete-ul (cere un filtru) și pentru claritate.
+  const { error } = await supabase.from("books").delete().eq("user_id", user.id)
+  if (error) throw new Error(error.message)
+}
+
+/**
  * Updates an existing character (matched by id).
  * Throws on error so the caller can show a message.
  */

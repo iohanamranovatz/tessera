@@ -39,6 +39,11 @@ interface AuthState {
   signUp: (email: string, password: string) => Promise<{ needsConfirmation: boolean }>
   /** Deconectare. */
   signOut: () => Promise<void>
+  /**
+   * GDPR „right to erasure": șterge DEFINITIV contul + tot conținutul (prin
+   * funcția Postgres delete_user, vezi migrations/004). Apoi deconectează local.
+   */
+  deleteAccount: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthState | undefined>(undefined)
@@ -68,7 +73,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signUp(email: string, password: string) {
-    const { data, error } = await supabase.auth.signUp({ email, password })
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        // Linkul din emailul de confirmare redirecționează ÎNAPOI la site-ul de
+        // unde s-a înregistrat userul (localhost în dev, domeniul real în prod),
+        // nu la un URL fix. Fără asta, Supabase folosește Site URL-ul din
+        // dashboard (implicit localhost:3000) → eroare când testezi pe deploy.
+        // URL-ul trebuie să fie și în lista „Redirect URLs" din Supabase.
+        emailRedirectTo:
+          typeof window !== "undefined" ? `${window.location.origin}/library` : undefined,
+      },
+    })
     if (error) throw new Error(error.message)
     // Fără sesiune imediată ⇒ Supabase așteaptă confirmarea pe email.
     return { needsConfirmation: !data.session }
@@ -77,6 +94,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function signOut() {
     const { error } = await supabase.auth.signOut()
     if (error) throw new Error(error.message)
+  }
+
+  async function deleteAccount() {
+    // RPC-ul (SECURITY DEFINER) șterge rândul din auth.users; cascadele curăță
+    // tot conținutul. Vezi migrations/004_delete_user_rpc.sql.
+    const { error } = await supabase.rpc("delete_user")
+    if (error) throw new Error(error.message)
+    // Sesiunea locală e acum invalidă — o curățăm. (Ignorăm eroarea de signOut:
+    // contul oricum nu mai există.)
+    await supabase.auth.signOut().catch(() => {})
   }
 
   return (
@@ -88,6 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signIn,
         signUp,
         signOut,
+        deleteAccount,
       }}
     >
       {children}
