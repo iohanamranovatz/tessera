@@ -12,6 +12,7 @@
 
 import { useCallback, useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase/client"
+import { deleteAllMyImages, deleteImagesForBook } from "@/lib/supabase/upload"
 import type { Book, Character, Fragment, Relationship } from "@/types"
 
 // --- row -> model mappers ---------------------------------------------------
@@ -288,6 +289,12 @@ export async function createRelationship(relationship: Relationship): Promise<vo
  * Throws on error so the caller can show a message.
  */
 export async function deleteBook(bookId: string): Promise<void> {
+  // ÎNTÂI imaginile: cascada bazei de date șterge rândurile fragmentelor, dar
+  // fișierele din Storage n-au nicio legătură cu cheile străine și ar rămâne
+  // acolo la nesfârșit. După ce cartea dispare n-am mai avea de unde ști ce
+  // fișiere îi aparțineau.
+  await deleteImagesForBook(bookId)
+
   const { error } = await supabase.from("books").delete().eq("id", bookId)
   if (error) throw new Error(error.message)
 }
@@ -306,6 +313,12 @@ export async function deleteAllMyData(): Promise<void> {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) throw new Error("You must be signed in to delete your data.")
+
+  // Imaginile încărcate de utilizator SUNT date de-ale lui, iar /privacy promite
+  // ștergerea completă. Fără asta, pozele rămâneau în Storage după ce omul a
+  // apăsat „delete all my data" — adică promisiunea nu era respectată.
+  await deleteAllMyImages()
+
   // RLS restrânge oricum la rândurile proprii; filtrăm explicit pe user_id ca
   // PostgREST să accepte delete-ul (cere un filtru) și pentru claritate.
   const { error } = await supabase.from("books").delete().eq("user_id", user.id)
@@ -330,5 +343,57 @@ export async function updateCharacter(character: Character): Promise<void> {
       avatar_type: character.avatarType ?? null,
     })
     .eq("id", character.id)
+  if (error) throw new Error(error.message)
+}
+
+/**
+ * Updates an existing fragment (matched by id).
+ * Throws on error so the caller can show a message.
+ *
+ * `book_id` NU e în lista de coloane: un fragment nu se mută între cărți, iar
+ * politica RLS l-ar refuza oricum (vezi migrations/005).
+ */
+export async function updateFragment(fragment: Fragment): Promise<void> {
+  const { error } = await supabase
+    .from("fragments")
+    .update({
+      character_id: fragment.characterId,
+      type: fragment.type,
+      content: fragment.content,
+      label: fragment.label ?? null,
+      position: fragment.position,
+      size: fragment.size,
+      image_meta: fragment.imageMeta ?? null,
+    })
+    .eq("id", fragment.id)
+  if (error) throw new Error(error.message)
+}
+
+/**
+ * Salvează DOAR poziția unui fragment.
+ *
+ * Separată de `updateFragment` fiindcă e chemată la fiecare eliberare de mouse
+ * după o tragere: n-are rost să trimitem tot rândul (inclusiv `image_meta`) ca
+ * să schimbăm două numere. Întoarce o promisiune pe care apelantul o poate
+ * ignora — board-ul a mutat deja cardul pe ecran, salvarea e doar persistare.
+ */
+export async function updateFragmentPosition(
+  id: string,
+  position: Fragment["position"],
+): Promise<void> {
+  const { error } = await supabase.from("fragments").update({ position }).eq("id", id)
+  if (error) throw new Error(error.message)
+}
+
+/**
+ * Deletes a fragment by id.
+ *
+ * ATENȚIE: nu atinge fișierele din Storage. Dacă fragmentul avea o imagine
+ * încărcată de utilizator, apelantul trebuie să cheme și `deleteFragmentImage`
+ * cu căile din `imageMeta` — altfel rămân fișiere orfane în bucket.
+ * Vezi components/collage/CollageBoard.tsx.
+ */
+export async function deleteFragment(id: string): Promise<void> {
+  const { error } = await supabase.from("fragments").delete().eq("id", id)
   if (error) throw new Error(error.message)
 }

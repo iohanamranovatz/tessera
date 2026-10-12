@@ -21,6 +21,7 @@ import {
 } from "react"
 import type { Session, User } from "@supabase/supabase-js"
 import { supabase } from "@/lib/supabase/client"
+import { deleteAllMyImages } from "@/lib/supabase/upload"
 
 interface AuthState {
   /** Utilizatorul curent, sau null dacă nimeni nu e logat. */
@@ -97,6 +98,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function deleteAccount() {
+    // Imaginile din Storage ÎNTÂI: RPC-ul șterge contul, iar după aceea nu mai
+    // avem sesiune cu care să le putem șterge — ar rămâne acolo pe veci, deși
+    // contul care le-a încărcat nu mai există.
+    await deleteAllMyImages()
+
     // RPC-ul (SECURITY DEFINER) șterge rândul din auth.users; cascadele curăță
     // tot conținutul. Vezi migrations/004_delete_user_rpc.sql.
     const { error } = await supabase.rpc("delete_user")

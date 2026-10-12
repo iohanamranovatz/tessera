@@ -68,7 +68,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           tessera · your literary universe
         </p>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4" data-testid="auth-form">
           <div>
             <label
               htmlFor="email"
@@ -78,6 +78,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
             </label>
             <input
               id="email"
+              data-testid="auth-email"
               type="email"
               autoComplete="email"
               required
@@ -97,6 +98,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
             </label>
             <input
               id="password"
+              data-testid="auth-password"
               type="password"
               autoComplete={isLogin ? "current-password" : "new-password"}
               required
@@ -109,7 +111,10 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           </div>
 
           {error && (
-            <p className="rounded border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm italic text-destructive">
+            <p
+              data-testid="auth-error"
+              className="rounded border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm italic text-destructive"
+            >
               {error}
             </p>
           )}
@@ -121,6 +126,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
 
           <button
             type="submit"
+            data-testid="auth-submit"
             disabled={submitting}
             className="w-full rounded bg-primary px-6 py-3 font-serif italic text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
           >

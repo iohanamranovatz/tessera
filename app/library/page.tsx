@@ -119,7 +119,10 @@ export default function LibraryPage() {
         className="flex items-center justify-between gap-3 bg-accent px-4 py-3 sm:px-6"
         style={{ borderBottom: "0.5px solid var(--topbar-border)" }}
       >
-        <h1 className="font-serif text-lg italic tracking-wide text-primary sm:text-xl">
+        <h1
+          data-testid="library-title"
+          className="font-serif text-lg italic tracking-wide text-primary sm:text-xl"
+        >
           tessera · library
         </h1>
         <div className="flex items-center gap-2 sm:gap-3">
@@ -132,6 +135,7 @@ export default function LibraryPage() {
           </button>
           <button
             onClick={handleSignOut}
+            data-testid="library-signout"
             title="Sign out"
             aria-label="Sign out"
             className="flex items-center gap-2 rounded border border-border px-3 py-1.5 font-serif text-xs text-foreground/90 transition-colors hover:bg-secondary/50 sm:text-sm"
