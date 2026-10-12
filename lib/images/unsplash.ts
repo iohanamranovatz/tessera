@@ -21,6 +21,7 @@
  */
 
 import type { ImageResult } from "./types"
+import { fetchJson } from "./http"
 
 const ENDPOINT = "https://api.unsplash.com/search/photos"
 
@@ -50,15 +51,16 @@ export async function searchUnsplash(query: string): Promise<ImageResult[]> {
       per_page: String(PER_PAGE),
     })
 
-    const res = await fetch(`${ENDPOINT}?${params.toString()}`, {
+    // ATENȚIE: fără `revalidate`. fetchJson trimite atunci `cache: "no-store"`,
+    // adică exact ce cere licența Unsplash (fără cache pe server). Nu adăuga
+    // revalidate aici — nici memo-ul din index.ts nu păstrează Unsplash.
+    const data = await fetchJson<{ results?: any[] }>(`${ENDPOINT}?${params.toString()}`, {
       headers: {
         // Unsplash cere cheia ca "Client-ID <access_key>".
         Authorization: `Client-ID ${accessKey}`,
       },
     })
-    if (!res.ok) return []
 
-    const data = await res.json()
     const items: any[] = data?.results ?? []
 
     return items

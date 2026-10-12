@@ -11,7 +11,7 @@
  */
 
 import type { Fragment, FragmentSize } from "@/types"
-import { searchImages } from "@/lib/images"
+import { searchFirstImage } from "@/lib/images"
 import { findOptimalPosition, type Point } from "@/lib/positioning"
 
 /** Câte query-uri folosim per personaj (chiar dacă AI-ul dă mai multe).
@@ -21,7 +21,13 @@ const MAX_QUERIES_PER_CHARACTER = 2
 /** Câte căutări de imagini rulăm simultan. Le paralelizăm ca să nu așteptăm
  *  fiecare query pe rând (o carte cu multe personaje = zeci de căutări), dar
  *  păstrăm un plafon ca să nu izbim toate API-urile de muzeu deodată și să nu
- *  lovim rate-limit-urile lor. 6 = compromis bun între viteză și politețe. */
+ *  lovim rate-limit-urile lor.
+ *
+ *  Urcasem la 8 „pentru viteză" și a ieșit prost: cu 8 căutări simultane × 4
+ *  surse, Wikimedia ne răspundea cu HTTP 429 (rate limit) la peste jumătate
+ *  din cereri, deci pierdeam imagini care EXISTAU. Acum plafonul real stă în
+ *  lib/images/http.ts (maximum 4 cereri simultane per host), iar valoarea de
+ *  aici doar nu se mai bate cu el. */
 const SEARCH_CONCURRENCY = 6
 
 /** Mărimile posibile ale unui fragment; rotăm prin ele pentru varietate vizuală. */
@@ -62,10 +68,12 @@ export async function buildImageFragments(
   //    viteză: o carte cu multe personaje (ex. „Război și pace") făcea zeci de
   //    căutări una câte una; acum merg simultan. Păstrăm ordinea din `searches`,
   //    ca plasarea de mai jos să fie deterministă.
-  const tops = await mapWithConcurrency(searches, SEARCH_CONCURRENCY, async ({ query }) => {
-    const results = await searchImages(query)
-    return results[0] // prima imagine găsită (sau undefined dacă niciuna)
-  })
+  //    `searchFirstImage` (nu `searchImages`) fiindcă aici ne trebuie exact o
+  //    imagine: se oprește la prima sursă care răspunde, în loc să aștepte
+  //    toate patru. Vezi nota din index.ts.
+  const tops = await mapWithConcurrency(searches, SEARCH_CONCURRENCY, ({ query }) =>
+    searchFirstImage(query),
+  )
 
   // 3. PLASAREA rămâne secvențială: fiecare poziție depinde de fragmentele deja
   //    puse (findOptimalPosition), iar mărimea/rotația de câte am plasat. Iterăm
@@ -100,6 +108,11 @@ export async function buildImageFragments(
       // pentru atribuire (Unsplash) și tracking. Vezi STAGIUL 7.5.B.
       imageMeta: {
         source: top.source,
+        // Varianta mică a imaginii, dacă sursa oferă una. O PERSISTĂM fiindcă
+        // ea e cea randată în cardul de pe board — un thumbnail de ~600px în
+        // loc de originalul de muzeu de 3000px+ și câțiva MB. Vezi
+        // components/collage/FragmentContent.tsx.
+        thumbUrl: top.thumbUrl,
         license: top.license,
         author: top.author,
         authorUrl: top.authorUrl,

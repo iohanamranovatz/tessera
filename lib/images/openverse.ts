@@ -1,13 +1,18 @@
 /**
  * openverse.ts — caută imagini prin Openverse (openverse.org).
  *
- * API public, GRATIS, fără cheie obligatorie. Openverse e un agregator de media
- * cu licențe libere (CC + domeniu public) din multe surse (Flickr, muzee,
- * Wikimedia etc.). Ne dă direct URL-ul, dimensiunile și autorul — deci filtrul
- * de rezoluție funcționează curat.
+ * Openverse e un agregator de media cu licențe libere (CC + domeniu public) din
+ * multe surse (Flickr, muzee, Wikimedia etc.). Ne dă direct URL-ul, dimensiunile
+ * și autorul — deci filtrul de rezoluție funcționează curat.
  *
- * Notă: fără cheie există o limită de rată mai mică. E suficient pentru dezvoltare;
- * dacă lovim limita, ne putem înregistra pentru un token (la 6.C.2+ dacă e nevoie).
+ * SURSĂ OPȚIONALĂ, dezactivată implicit. Accesul anonim NU mai merge: măsurat,
+ * API-ul răspunde cu HTTP 429 la FIECARE cerere (iar un curl direct primește
+ * pagina de verificare Cloudflare, nu JSON). Cât timp o chemam oricum, fiecare
+ * căutare irosea un drum de rețea garantat eșuat și umplea log-ul de avertismente.
+ *
+ * Ca s-o activezi, înregistrează o aplicație (https://api.openverse.org/v1/auth_tokens/register/),
+ * obține un token și pune-l în `.env.local`:  OPENVERSE_API_TOKEN=token_ul_tau
+ * Fără el, funcția întoarce [] în liniște — exact ca Europeana/Unsplash fără cheie.
  *
  * LICENȚE (vezi STAGIUL 7.5):
  * Implicit Openverse întoarce TOT — inclusiv CC BY-SA, care ne-ar obliga la
@@ -16,17 +21,25 @@
  */
 
 import type { ImageResult, License } from "./types"
+import { fetchJson } from "./http"
 
 const ENDPOINT = "https://api.openverse.org/v1/images/"
 
-/** Câte rezultate cerem per căutare. */
+/** Câte rezultate cerem per căutare. O singură cerere, deci mărimea paginii
+ *  nu schimbă latența. */
 const PAGE_SIZE = 10
+
+/** `license_type=public_domain` ⇒ doar PDM/CC0, deci cacheabil. */
+const REVALIDATE_SECONDS = 86_400
 
 /**
  * Caută în Openverse și întoarce imagini normalizate.
  * Întoarce `[]` la orice problemă — nu aruncă (vezi nota din met-museum.ts).
  */
 export async function searchOpenverse(query: string): Promise<ImageResult[]> {
+  const token = process.env.OPENVERSE_API_TOKEN
+  if (!token) return [] // fără token, sărim sursa în liniște (vezi nota de sus)
+
   try {
     const params = new URLSearchParams({
       q: query,
@@ -36,12 +49,11 @@ export async function searchOpenverse(query: string): Promise<ImageResult[]> {
       license_type: "public_domain",
     })
 
-    const res = await fetch(`${ENDPOINT}?${params.toString()}`, {
-      headers: { "User-Agent": "Tessera/0.1 (literary moodboard; educational project)" },
+    const data = await fetchJson<{ results?: any[] }>(`${ENDPOINT}?${params.toString()}`, {
+      revalidate: REVALIDATE_SECONDS,
+      headers: { Authorization: `Bearer ${token}` },
     })
-    if (!res.ok) return []
 
-    const data = await res.json()
     const items: any[] = data?.results ?? []
 
     const results: ImageResult[] = []

@@ -23,11 +23,19 @@
  */
 
 import type { ImageResult, License } from "./types"
+import { fetchJson } from "./http"
 
 const ENDPOINT = "https://commons.wikimedia.org/w/api.php"
 
-/** Câte fișiere cerem. Cerem mai multe decât ținem, fiindcă unele pică la filtru. */
+/** Câte fișiere cerem. Cerem MULT mai multe decât ținem, fiindcă filtrul de
+ *  licență (doar PD/CC0, vezi nota de sus) taie majoritatea rezultatelor.
+ *  E o singură cerere indiferent de valoare, deci o limită mai mare nu costă
+ *  un drum de rețea în plus — doar câțiva kilobyți. Scăzusem la 8 și am pierdut
+ *  rezultate degeaba. */
 const SEARCH_LIMIT = 15
+
+/** Acceptăm doar PD/CC0 de pe Commons (vezi nota de sus), deci cacheabil. */
+const REVALIDATE_SECONDS = 86_400
 
 /** Lățimea (px) a thumbnail-ului pe care îl cerem pentru preview. */
 const THUMB_WIDTH = 600
@@ -55,12 +63,10 @@ export async function searchWikimedia(query: string): Promise<ImageResult[]> {
       iiurlwidth: String(THUMB_WIDTH), // cere și un thumbnail de această lățime
     })
 
-    const res = await fetch(`${ENDPOINT}?${params.toString()}`, {
-      headers: { "User-Agent": "Tessera/0.1 (literary moodboard; educational project)" },
+    const data = await fetchJson<any>(`${ENDPOINT}?${params.toString()}`, {
+      revalidate: REVALIDATE_SECONDS,
     })
-    if (!res.ok) return []
 
-    const data = await res.json()
     const pages = data?.query?.pages
     if (!pages) return []
 

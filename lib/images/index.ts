@@ -1,16 +1,20 @@
 /**
  * index.ts — căutarea FEDERATĂ de imagini.
  *
- * `searchImages(query)` lucrează în două straturi (strategia "Hibrid"):
+ * O singură funcție publică: `searchFirstImage(query)` — o imagine, cât mai
+ * repede, din colecții legal libere.
  *
- *   STRATUL 1 — surse de muzeu (principale), chemate în paralel:
- *     Met, Europeana, Wikimedia, Openverse.
- *     Le combinăm, deduplicăm, filtrăm după rezoluție, amestecăm (round-robin).
+ *   STRATUL 1 — surse de muzeu (principale): Met, Europeana, Wikimedia,
+ *     Openverse. NU le pornim pe toate deodată: prima pleacă imediat, iar
+ *     următoarele doar dacă ea întârzie (vezi `raceFirstPrimary`). Așa evităm
+ *     rate-limit-urile lor, care altfel ne lăsau cu jumătate din imagini.
  *
- *   STRATUL 2 — Unsplash (FALLBACK), chemat DOAR dacă stratul 1 a găsit prea
- *     puține imagini (sub TOP_N). Util pentru cărți contemporane, unde muzeele
- *     nu acoperă. Așa evităm și constrângerile Unsplash (atribuire, fără cache)
- *     atunci când nu avem nevoie de el.
+ *   STRATUL 2 — Unsplash (FALLBACK), chemat DOAR dacă muzeele n-au găsit nimic.
+ *     Util pentru cărți contemporane. Așa evităm și constrângerile Unsplash
+ *     (atribuire obligatorie, fără cache) atunci când nu avem nevoie de el.
+ *
+ * Peste tot stă un memo pe query + deduplicarea cererilor în curs, deci același
+ * query căutat de două ori nu atinge rețeaua a doua oară.
  */
 
 import type { ImageResult } from "./types"
@@ -25,9 +29,6 @@ export type { ImageResult } from "./types"
 /** Lățimea minimă acceptată. Sub asta, imaginea e prea mică pentru un fragment. */
 const MIN_WIDTH = 800
 
-/** Câte imagini întoarcem în final. */
-const TOP_N = 5
-
 /** Sursele PRINCIPALE (muzee), chemate mereu, în paralel. Ordinea = round-robin. */
 const PRIMARY_SOURCES: Array<(query: string) => Promise<ImageResult[]>> = [
   searchMet,
@@ -36,25 +37,189 @@ const PRIMARY_SOURCES: Array<(query: string) => Promise<ImageResult[]>> = [
   searchOpenverse,
 ]
 
+/** Cât ținem minte rezultatul unei căutări (ms). 10 minute: destul ca un
+ *  onboarding întreg (și re-rulările lui) să nu mai atingă rețeaua, dar nu
+ *  atât încât să ținem memorie ocupată degeaba într-un proces lung. */
+const MEMO_TTL_MS = 10 * 60 * 1000
+
+/** Fereastra de grație (ms): după ce o sursă a răspuns cu o imagine bună, mai
+ *  așteptăm atât pentru una de prioritate mai mare (ordinea din
+ *  PRIMARY_SOURCES). Așa câștigăm viteză fără să renunțăm la calitate când
+ *  Met/Europeana sunt doar cu o fracțiune de secundă în spate. */
+const GRACE_MS = 250
+
+/** Cât așteptăm înainte să pornim următoarea sursă de rezervă (vezi pornirea
+ *  eșalonată din `raceFirstPrimary`). Destul cât sursa principală să apuce să
+ *  răspundă în cazul normal — deci rezervele nici nu pleacă — dar destul de
+ *  scurt cât să nu se simtă când chiar e nevoie de ele. */
+const STAGGER_MS = 600
+
 /**
- * Caută o imagine și întoarce cele mai bune TOP_N rezultate.
- * Fiecare sursă își înghite propriile erori (întoarce []), deci o sursă picată
- * nu strică tot — primim ce-au găsit celelalte.
+ * Memo la nivel de QUERY. Cheia e query-ul, valoarea prima imagine găsită.
+ * Păstrăm și `undefined` (query fără rezultate) ca să nu reinterogăm patru
+ * API-uri pentru ceva ce știm că nu dă nimic.
+ *
+ * NU intră aici imaginile de pe Unsplash — licența lor interzice cache-ul
+ * (vezi unsplash.ts). Doar PD/CC0, care avem voie să le reținem.
  */
-export async function searchImages(query: string): Promise<ImageResult[]> {
-  // STRATUL 1: sursele de muzeu, în paralel.
-  const perSource = await Promise.all(PRIMARY_SOURCES.map((fn) => fn(query)))
-  const seen = new Set<string>()
-  const primary = rank(perSource.flat(), seen)
+const memo = new Map<string, { at: number; result: ImageResult | undefined }>()
 
-  // Dacă muzeele au acoperit, gata — nu mai deranjăm Unsplash.
-  if (primary.length >= TOP_N) return primary.slice(0, TOP_N)
+/**
+ * Căutări ÎN CURS, pe query. Două personaje cu același query vizual (se întâmplă
+ * des — „mănăstire ortodoxă rusă" apare la mai mulți) împart o singură
+ * operațiune de rețea în loc să o facă fiecare pe a lui.
+ */
+const inFlight = new Map<string, Promise<ImageResult | undefined>>()
 
-  // STRATUL 2 (fallback): completăm cu Unsplash. `seen` are deja URL-urile de mai
-  // sus, deci nu duplicăm. Unsplash rămâne MEREU la coada listei (e secundar).
-  const unsplash = rank(await searchUnsplash(query), seen)
-  return [...primary, ...unsplash].slice(0, TOP_N)
+/**
+ * Întoarce O SINGURĂ imagine pentru `query`, cât mai repede.
+ *
+ * Asta e funcția pe care o folosește fluxul de fragmente: pornește sursele de
+ * muzeu (eșalonat, vezi mai jos) și se oprește la prima imagine bună. Plus memo
+ * + deduplicare de cereri în curs, deci al doilea apel cu același query e instant.
+ */
+export async function searchFirstImage(query: string): Promise<ImageResult | undefined> {
+  const key = query.trim().toLowerCase()
+
+  // 1. Îl știm deja și e încă proaspăt?
+  const hit = memo.get(key)
+  if (hit && Date.now() - hit.at < MEMO_TTL_MS) return hit.result
+  if (hit) memo.delete(key) // expirat — îl scoatem ca să nu crească harta
+
+  // 2. Îl caută deja altcineva? Atașăm-ne la aceeași promisiune.
+  const pending = inFlight.get(key)
+  if (pending) return pending
+
+  // 3. Pornim căutarea, înregistrând-o ca „în curs".
+  const work = (async () => {
+    try {
+      const primary = await raceFirstPrimary(query)
+      if (primary) {
+        memo.set(key, { at: Date.now(), result: primary })
+        return primary
+      }
+
+      // Muzeele n-au găsit nimic: cădem pe Unsplash (cărți contemporane).
+      // Rezultatul NU se memorează — Unsplash interzice cache-ul.
+      const unsplash = rank(await searchUnsplash(query), new Set<string>())
+      if (unsplash.length > 0) return unsplash[0]
+
+      // Nimic, nicăieri. Ținem minte și asta (e un rezultat PD valid: „gol").
+      memo.set(key, { at: Date.now(), result: undefined })
+      return undefined
+    } finally {
+      inFlight.delete(key)
+    }
+  })()
+
+  inFlight.set(key, work)
+  return work
 }
+
+/**
+ * Pornește sursele de muzeu și se oprește la PRIMA imagine bună.
+ *
+ * „Prioritate" = poziția în PRIMARY_SOURCES (Met, Europeana, Wikimedia,
+ * Openverse). Dacă răspunde prima o sursă de prioritate mică dar una mai bună
+ * mai are șanse, așteptăm GRACE_MS pentru ea.
+ *
+ * Întoarce `undefined` dacă nicio sursă de muzeu nu a dat nimic utilizabil.
+ */
+function raceFirstPrimary(query: string): Promise<ImageResult | undefined> {
+  // `seen` e partajat doar ca sursele să nu propună aceeași imagine; cum luăm
+  // una singură, efectul e marginal — dar păstrează semantica lui `rank`.
+  const seen = new Set<string>()
+  // settled[i] === undefined ⇒ sursa i încă nu a răspuns (sau n-a pornit).
+  const settled = new Array<ImageResult[] | undefined>(PRIMARY_SOURCES.length)
+  // Câte surse AU PORNIT și încă nu au răspuns. Creștem la pornire, scădem la
+  // răspuns — nu putem porni de la 4, fiindcă unele s-ar putea să nu plece deloc.
+  let inFlightCount = 0
+  let startedAll = false
+
+  return new Promise<ImageResult | undefined>((resolve) => {
+    let done = false
+    let graceTimer: ReturnType<typeof setTimeout> | undefined
+    // Cronometrele care urmează să pornească sursele de rezervă.
+    const starters: Array<ReturnType<typeof setTimeout>> = []
+
+    /** Indexul celei mai bine clasate surse care a răspuns cu ceva, sau -1. */
+    function winnerIndex(): number {
+      return settled.findIndex((results) => results !== undefined && results.length > 0)
+    }
+
+    function finish() {
+      if (done) return
+      done = true
+      if (graceTimer) clearTimeout(graceTimer)
+      // Sursele care nu au apucat să plece nu mai pleacă — aici e economia de
+      // cereri care ne scapă de rate-limit.
+      for (const t of starters) clearTimeout(t)
+      const i = winnerIndex()
+      resolve(i === -1 ? undefined : settled[i]![0])
+    }
+
+    function onSettle() {
+      inFlightCount--
+      if (done) return
+
+      // Toate au pornit și toate au răspuns: nu mai are rost să așteptăm.
+      if (startedAll && inFlightCount === 0) return finish()
+
+      const i = winnerIndex()
+      if (i === -1) return // încă nimic utilizabil — așteptăm mai departe
+
+      // Dacă toate sursele mai bune au răspuns deja (fie și cu nimic), nu mai
+      // poate veni nimic mai bun → ne oprim acum.
+      const higherStillPending = settled.slice(0, i).some((r) => r === undefined)
+      if (!higherStillPending) return finish()
+
+      // Altfel le dăm o fereastră scurtă. Nu o resetăm la fiecare răspuns —
+      // altfel un șir de surse lente ar putea amâna la nesfârșit.
+      if (!graceTimer) graceTimer = setTimeout(finish, GRACE_MS)
+    }
+
+    function start(i: number) {
+      if (done) return
+      inFlightCount++
+      // Clienții înghit singuri erorile, dar punem și aici o plasă: dacă vreunul
+      // ar arunca totuși, nu vrem să rămână promisiunea neterminată pe veci.
+      PRIMARY_SOURCES[i](query).then(
+        (raw) => {
+          settled[i] = rank(raw, seen)
+          onSettle()
+        },
+        () => {
+          settled[i] = []
+          onSettle()
+        },
+      )
+    }
+
+    // PORNIRE EȘALONATĂ („hedged requests").
+    //
+    // Varianta care pornea toate cele 4 surse deodată cerea 4 drumuri de rețea
+    // pentru FIECARE query, deși aproape mereu primul răspuns era de ajuns. La o
+    // carte întreagă (zeci de căutări) asta însemna sute de cereri în câteva
+    // secunde, iar Wikimedia Commons răspundea cu HTTP 429 și `Retry-After: 52`
+    // — adică sursa pica pentru tot restul generării și rămâneam cu jumătate
+    // din fragmente (simptomul raportat: 4 fragmente pentru o carte întreagă).
+    //
+    // Acum prima sursă pleacă imediat, iar celelalte DOAR dacă ea n-a dat încă
+    // un răspuns bun. Când sursa principală merge — cazul normal — restul nu se
+    // mai cheamă deloc. Acoperirea rămâne: dacă prima întârzie sau nu găsește
+    // nimic, rezervele pornesc pe rând.
+    start(0)
+    for (let i = 1; i < PRIMARY_SOURCES.length; i++) {
+      starters.push(
+        setTimeout(() => {
+          start(i)
+          if (i === PRIMARY_SOURCES.length - 1) startedAll = true
+        }, i * STAGGER_MS),
+      )
+    }
+  })
+}
+
 
 /**
  * Curăță o listă de imagini: deduplică (folosind setul `seen` partajat),
