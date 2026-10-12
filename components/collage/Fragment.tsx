@@ -189,6 +189,9 @@ export function Fragment({
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
+      // Plasă de siguranță pentru orice element draggable nativ din card
+      // (imagini, link-urile de atribuire): drag-ul HTML5 ar fura pointerul.
+      onDragStart={(e) => e.preventDefault()}
       onMouseEnter={() => {
         setHoveredCharacterId(fragment.characterId)
         unsplash.onMouseEnter() // pornește timer-ul de 2s (no-op dacă nu e Unsplash)

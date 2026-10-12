@@ -41,6 +41,9 @@ export function FragmentContent({ fragment, color }: FragmentContentProps) {
         // Decodarea off-thread: un card mare nu mai blochează firul principal
         // (deci nu mai „înțepenește" scroll-ul/drag-ul board-ului cât se pictează).
         decoding="async"
+        // Fără asta, browserul pornește drag-ul NATIV al imaginii (HTML5),
+        // trimite `pointercancel` și tragerea cardului se oprește din prima.
+        draggable={false}
         className="h-full w-full object-cover"
       />
     )

@@ -4,12 +4,14 @@
  * TopBar — the application header.
  *
  * Left:  the "tessera" wordmark + a <BookSwitcher /> dropdown.
- * Right: the chapter indicator ("ch. 8/12"), a search icon and a settings icon.
+ * Right: the chapter indicator ("ch. 8/12"), a search icon and a settings icon
+ *        (a link to /settings).
  *
  * It loads the current book itself (via useBook) so it can show the live title
  * and chapter without the parent having to pass them down.
  */
 
+import Link from "next/link"
 import { Search, Settings } from "lucide-react"
 import { useBook } from "@/hooks/use-tessera-data"
 import { BookSwitcher } from "./BookSwitcher"
@@ -52,12 +54,15 @@ export function TopBar({ bookId, activeTab }: TopBarProps) {
         <span className="hidden font-serif text-xs text-muted-foreground sm:inline">
           {book ? `ch. ${book.currentChapter}/${book.totalChapters}` : "ch. —/—"}
         </span>
-        <button
+        <Link
+          href="/settings"
           className="rounded p-2 transition-colors hover:bg-secondary/50"
           aria-label="Settings"
+          title="Settings"
+          data-testid="topbar-settings"
         >
           <Settings className="h-4 w-4 text-muted-foreground" />
-        </button>
+        </Link>
       </div>
     </header>
   )

@@ -278,6 +278,44 @@ class TestDrag:
 
         assert (after_x, after_y) != (before_x, before_y), "Position did not change"
 
+    def test_image_fragment_can_be_dragged(self, board: BoardPage):
+        """Un card cu IMAGINE se trage la fel ca unul cu text.
+
+        Regresie: `<img>` e draggable nativ, iar drag-ul HTML5 al browserului
+        fura pointerul (`pointercancel`) — cardurile cu imagine nu se mișcau.
+        """
+        board.open_add_dialog()
+        board.click("fragment-kind-image")
+        board.driver.find_element(
+            "css selector", '[data-testid="fragment-file-input"]'
+        ).send_keys(str(IMAGE_FIXTURE))
+        board._wait().until(
+            lambda d: "uploading" not in board.find("fragment-dropzone").text.lower(),
+            "The upload never finished",
+        )
+        board.click("fragment-save")
+        board._wait().until(
+            lambda d: board.driver.find_elements(
+                By.CSS_SELECTOR, '[data-testid="fragment"] img'
+            ),
+            "Image never rendered",
+        )
+
+        image = board.driver.find_element(By.CSS_SELECTOR, '[data-testid="fragment"] img')
+        target = image.find_element(By.XPATH, './ancestor::*[@data-testid="fragment"]')
+        fragment_id = target.get_attribute("data-fragment-id")
+        before = board.position_of(target)
+
+        board.drag_fragment(target, dx=-120, dy=80)
+
+        board.driver.refresh()
+        board.wait_for_hydration()
+        board._wait().until(
+            lambda d: board.fragment_count() > 0, "Board never re-rendered"
+        )
+        after = board.position_of(board.fragment_by_id(fragment_id))
+        assert after != before, "Image fragment did not move"
+
     def test_fragment_stays_on_screen(self, board: BoardPage):
         """O tragere violentă spre margine nu poate arunca un card în afara ecranului."""
         fragments = board.fragments()

@@ -5,5 +5,6 @@ from .board_page import BoardPage
 from .landing_page import LandingPage
 from .library_page import LibraryPage
 from .login_page import LoginPage
+from .settings_page import SettingsPage
 
-__all__ = ["BasePage", "BoardPage", "LandingPage", "LibraryPage", "LoginPage"]
+__all__ = ["BasePage", "BoardPage", "LandingPage", "LibraryPage", "LoginPage", "SettingsPage"]

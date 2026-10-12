@@ -36,8 +36,8 @@ export interface OnboardingCharacterDraft {
   /** Primul capitol în care apare (pentru filtrul anti-spoiler). */
   appearsInChapter?: number
   /** Căutări vizuale — folosite la salvare ca să aducem imagini reale pe board
-   *  (vezi /api/generate-fragments). Vin de la AI SAU le scrie userul manual în
-   *  formularul de personaj (câmpul „Image search terms"). */
+   *  (vezi /api/generate-fragments). Vin doar de la AI; personajele adăugate
+   *  manual nu au, iar userul își încarcă singur pozele pe board. */
   imageQueries?: string[]
   /** Simbol/glif opțional (ex: „∞", „🕯") introdus manual. La salvare devine un
    *  fragment de tip „symbol" pe board. */

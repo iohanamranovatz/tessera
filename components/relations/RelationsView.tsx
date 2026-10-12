@@ -19,7 +19,6 @@ import { useEffect, useMemo, useState } from "react"
 import {
   ReactFlow,
   Background,
-  Controls,
   MarkerType,
   useNodesState,
   useEdgesState,
@@ -277,7 +276,6 @@ export function RelationsView({ bookId }: RelationsViewProps) {
           >
             {/* Dotted paper-like background */}
             <Background gap={16} size={1} color="rgba(138, 118, 86, 0.25)" />
-            <Controls showInteractive={false} className="!border-border" />
           </ReactFlow>
         )}
       </div>

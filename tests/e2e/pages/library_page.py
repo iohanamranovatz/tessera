@@ -14,3 +14,6 @@ class LibraryPage(BasePage):
 
     def sign_out(self) -> None:
         self.click("library-signout")
+
+    def open_settings(self) -> None:
+        self.click("library-settings")
