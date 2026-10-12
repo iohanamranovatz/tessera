@@ -102,10 +102,20 @@ export interface Relationship {
  * author also have most fields blank — that's fine, they don't need credit.
  */
 export interface FragmentImageMeta {
-  /** Where the image came from (museum, Unsplash, etc.). */
-  source?: "met" | "wikimedia" | "europeana" | "openverse" | "unsplash"
-  /** Licence under which we display it. Drives whether we can cache, attribute, etc. */
-  license?: "public-domain" | "cc0" | "unsplash-license"
+  /** Where the image came from (museum, Unsplash, or the user's own upload). */
+  source?: "met" | "wikimedia" | "europeana" | "openverse" | "unsplash" | "upload"
+  /**
+   * A smaller variant of the image, when the source offers one (~600px).
+   *
+   * This is what the board actually renders: museum originals are routinely
+   * 3000px+ and several MB, which made fragments crawl in while the full file
+   * downloaded. `content` keeps the full-resolution URL for detail/zoom views.
+   */
+  thumbUrl?: string
+  /** Licence under which we display it. Drives whether we can cache, attribute, etc.
+   *  `user-upload` = the user supplied the file themselves; we make no claim about
+   *  its licence and never show it as if it came from a collection. */
+  license?: "public-domain" | "cc0" | "unsplash-license" | "user-upload"
   /** Author/artist/photographer name, for the credit line. */
   author?: string
   /** Link to the author's profile (e.g. Unsplash photographer page). */
@@ -120,6 +130,16 @@ export interface FragmentImageMeta {
    * Empty for any other source.
    */
   downloadLocation?: string
+  /**
+   * Upload-only: paths inside the `fragment-images` bucket.
+   *
+   * We keep them so deleting a fragment (or replacing its picture) can also
+   * remove the actual files — otherwise every edit would leave an orphan behind
+   * and the bucket would grow forever. Museum images have no path: we hotlink
+   * those and own nothing.
+   */
+  storagePath?: string
+  thumbStoragePath?: string
 }
 
 /**

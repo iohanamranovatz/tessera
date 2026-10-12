@@ -8,11 +8,21 @@
  * (le completăm cu valori implicite la salvare, în etapa următoare).
  */
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Feather } from "lucide-react"
 import { useOnboarding, type OnboardingData } from "../OnboardingContext"
 import type { AiBookResult } from "@/lib/book-ai"
+
+/** Mesajele care se rotesc cât AI-ul lucrează — să se vadă că ceva se întâmplă. */
+const LOADING_MESSAGES = [
+  "consulting the archive…",
+  "turning the first pages…",
+  "meeting the characters…",
+  "tracing who loves whom…",
+  "counting the chapters…",
+]
+const LOADING_MESSAGE_MS = 2200
 
 export default function TitlePage() {
   const router = useRouter()
@@ -21,6 +31,18 @@ export default function TitlePage() {
   // Stare pentru completarea cu AI: „se încarcă?" + un mesaj (succes sau eroare).
   const [aiLoading, setAiLoading] = useState(false)
   const [aiNote, setAiNote] = useState<{ kind: "ok" | "err"; text: string } | null>(null)
+
+  // Indexul mesajului de încărcare afișat acum; repornește de la 0 la fiecare cerere.
+  const [loadingStep, setLoadingStep] = useState(0)
+  useEffect(() => {
+    if (!aiLoading) return
+    setLoadingStep(0)
+    const timer = setInterval(
+      () => setLoadingStep((step) => (step + 1) % LOADING_MESSAGES.length),
+      LOADING_MESSAGE_MS,
+    )
+    return () => clearInterval(timer)
+  }, [aiLoading])
 
   const canContinue = data.title.trim().length > 0
 
@@ -173,10 +195,28 @@ export default function TitlePage() {
               type="button"
               onClick={fillWithAi}
               disabled={!canContinue || aiLoading}
-              className="flex w-full items-center justify-center gap-2 rounded border border-dashed border-muted-foreground/40 py-3 font-serif italic text-muted-foreground transition-colors hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-muted-foreground/40 disabled:hover:text-muted-foreground"
+              aria-busy={aiLoading}
+              className={`relative flex w-full items-center justify-center gap-2 overflow-hidden rounded border border-dashed py-3 font-serif italic transition-colors ${
+                aiLoading
+                  ? "cursor-wait border-primary/60 text-primary"
+                  : "border-muted-foreground/40 text-muted-foreground hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-muted-foreground/40 disabled:hover:text-muted-foreground"
+              }`}
             >
-              <Feather className={`h-4 w-4 ${aiLoading ? "animate-pulse" : ""}`} />
-              {aiLoading ? "consulting the archive…" : "fill with AI"}
+              <Feather className={`h-4 w-4 ${aiLoading ? "archive-quill" : ""}`} />
+              {aiLoading ? (
+                // `key` nou la fiecare mesaj ⇒ animația de intrare rulează din nou.
+                <span key={loadingStep} className="archive-message" aria-live="polite">
+                  {LOADING_MESSAGES[loadingStep]}
+                </span>
+              ) : (
+                "fill with AI"
+              )}
+              {aiLoading && (
+                <span
+                  aria-hidden
+                  className="archive-sweep absolute bottom-0 left-0 h-px w-1/4 bg-gradient-to-r from-transparent via-primary to-transparent"
+                />
+              )}
             </button>
 
             {aiNote && (

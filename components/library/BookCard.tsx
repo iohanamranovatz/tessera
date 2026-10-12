@@ -33,6 +33,7 @@ export function BookCard({ book, onClick, onDelete }: BookCardProps) {
       role="button"
       tabIndex={0}
       onClick={onClick}
+      data-testid="book-card"
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") onClick()
       }}

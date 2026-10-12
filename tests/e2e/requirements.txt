@@ -1,0 +1,4 @@
+selenium>=4.31
+pytest>=8.0
+# Lets the suite run in parallel: `pytest -n auto`. Optional but cheap.
+pytest-xdist>=3.5

@@ -24,14 +24,26 @@ function isImageUrl(content: string): boolean {
 export function FragmentContent({ fragment, color }: FragmentContentProps) {
   // Real image (from Stage 6.C): content holds a URL → render it filling the card.
   if (isImageUrl(fragment.content)) {
+    // Prefer the thumbnail the source gave us (~600px) over the original.
+    // A fragment card is a few hundred pixels wide at most, while museum
+    // originals are routinely 3000px+ and several MB — downloading those made
+    // the board visibly crawl in. `content` stays the full-resolution URL for
+    // detail/zoom views. Legacy fragments have no thumbUrl and fall back to it.
+    const src = fragment.imageMeta?.thumbUrl ?? fragment.content
     return (
       // eslint-disable-next-line @next/next/no-img-element -- external URLs from
       // many sources (museums/Unsplash); next/image needs per-domain config and
       // Unsplash forbids caching, so a plain <img> with hotlinking is correct here.
       <img
-        src={fragment.content}
+        src={src}
         alt={fragment.label ?? ""}
         loading="lazy"
+        // Decodarea off-thread: un card mare nu mai blochează firul principal
+        // (deci nu mai „înțepenește" scroll-ul/drag-ul board-ului cât se pictează).
+        decoding="async"
+        // Fără asta, browserul pornește drag-ul NATIV al imaginii (HTML5),
+        // trimite `pointercancel` și tragerea cardului se oprește din prima.
+        draggable={false}
         className="h-full w-full object-cover"
       />
     )

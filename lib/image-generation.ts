@@ -17,6 +17,26 @@ import { supabase } from "@/lib/supabase/client"
 import type { PendingImageWork } from "@/lib/pending-images"
 import type { Fragment } from "@/types"
 
+/**
+ * Câte personaje trimitem într-o singură cerere.
+ *
+ * 3 e compromisul: de 3× mai puține drumuri dus-întors decât varianta „unul
+ * câte unul", dar imaginile tot apar în VALURI (board-ul se umple progresiv,
+ * nu dintr-o dată după ce s-a terminat totul). Serverul are maxDuration = 60s,
+ * iar un grup de 3 personaje × 2 query-uri = 6 căutări, toate paralele acolo —
+ * încape confortabil.
+ */
+const CHARACTERS_PER_REQUEST = 3
+
+/** Taie o listă în bucăți de cel mult `size` elemente. */
+function chunk<T>(items: T[], size: number): T[][] {
+  const groups: T[][] = []
+  for (let i = 0; i < items.length; i += size) {
+    groups.push(items.slice(i, i + size))
+  }
+  return groups
+}
+
 /** Cărți pentru care am pornit deja generarea (ca să n-o pornim de două ori). */
 const started = new Set<string>()
 /** Cărți pentru care generarea e ÎN CURS (board-ul arată indicatorul cât e aici). */
@@ -61,14 +81,23 @@ export function startImageGeneration(bookId: string, work: PendingImageWork): vo
     }
 
     try {
-      for (const character of work.characters) {
+      // Mergem pe GRUPURI de personaje, nu unul câte unul. Înainte, o carte cu
+      // 9 personaje făcea 9 drumuri dus-întors secvențiale către server —
+      // principalul motiv pentru care board-ul se umplea în ~30s.
+      //
+      // De ce grupuri și NU cereri paralele: serverul calculează pozițiile
+      // pornind din `existingPositions`, iar noi le acumulăm pe măsură ce
+      // primim răspunsuri. Două cereri paralele ar primi aceeași listă și ar
+      // așeza fragmentele peste ele. Într-un grup, serverul le plasează
+      // secvențial în `buildImageFragments`, deci layout-ul rămâne corect.
+      for (const group of chunk(work.characters, CHARACTERS_PER_REQUEST)) {
         try {
           const res = await fetch("/api/generate-fragments", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               bookId,
-              characters: [character],
+              characters: group,
               existingPositions: placedPositions,
             }),
           })
@@ -80,7 +109,7 @@ export function startImageGeneration(bookId: string, work: PendingImageWork): vo
             }
           }
         } catch {
-          // un personaj a eșuat (rețea / fără rezultate) — continuăm cu restul
+          // un grup a eșuat (rețea / fără rezultate) — continuăm cu restul
         }
       }
     } finally {

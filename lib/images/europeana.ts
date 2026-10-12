@@ -23,11 +23,17 @@
  */
 
 import type { ImageResult, License } from "./types"
+import { fetchJson } from "./http"
 
 const ENDPOINT = "https://api.europeana.eu/record/v2/search.json"
 
-/** Câte rezultate cerem per căutare. */
+/** Câte rezultate cerem per căutare. O singură cerere, indiferent de valoare —
+ *  deci o limită mai mare nu costă un drum de rețea, doar randament în plus
+ *  după filtrul de drepturi. */
 const ROWS = 10
+
+/** Filtrăm server-side doar PD Mark / CC0, deci răspunsul e cacheabil. */
+const REVALIDATE_SECONDS = 86_400
 
 /** URI-urile de drepturi pe care le acceptăm. Sunt valorile standard
  *  rightsstatements.org / creativecommons.org pe care Europeana le folosește. */
@@ -61,10 +67,10 @@ export async function searchEuropeana(query: string): Promise<ImageResult[]> {
     params.append("qf", "TYPE:IMAGE")
     params.append("qf", RIGHTS_FILTER)
 
-    const res = await fetch(`${ENDPOINT}?${params.toString()}`)
-    if (!res.ok) return []
+    const data = await fetchJson<{ items?: any[] }>(`${ENDPOINT}?${params.toString()}`, {
+      revalidate: REVALIDATE_SECONDS,
+    })
 
-    const data = await res.json()
     const items: any[] = data?.items ?? []
 
     const results: ImageResult[] = []

@@ -9,7 +9,8 @@
  * politicile RLS (auth.uid()) filtrează datele fără cod suplimentar în hooks.
  *
  * Expune:
- *   { user, session, loading, signIn, signUp, signOut }
+ *   { user, session, loading, signIn, signUp, signOut,
+ *     updateEmail, updatePassword, deleteAccount }
  */
 
 import {
@@ -21,6 +22,7 @@ import {
 } from "react"
 import type { Session, User } from "@supabase/supabase-js"
 import { supabase } from "@/lib/supabase/client"
+import { deleteAllMyImages } from "@/lib/supabase/upload"
 
 interface AuthState {
   /** Utilizatorul curent, sau null dacă nimeni nu e logat. */
@@ -39,6 +41,16 @@ interface AuthState {
   signUp: (email: string, password: string) => Promise<{ needsConfirmation: boolean }>
   /** Deconectare. */
   signOut: () => Promise<void>
+  /**
+   * Schimbă emailul. Supabase trimite un link de confirmare; emailul nou devine
+   * activ abia după click (în funcție de setările proiectului, pe ambele adrese).
+   */
+  updateEmail: (newEmail: string) => Promise<void>
+  /**
+   * Schimbă parola. Verifică ÎNTÂI parola curentă — altfel oricine găsește un
+   * laptop cu sesiunea deschisă ar putea prelua contul.
+   */
+  updatePassword: (currentPassword: string, newPassword: string) => Promise<void>
   /**
    * GDPR „right to erasure": șterge DEFINITIV contul + tot conținutul (prin
    * funcția Postgres delete_user, vezi migrations/004). Apoi deconectează local.
@@ -96,7 +108,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) throw new Error(error.message)
   }
 
+  async function updateEmail(newEmail: string) {
+    const { error } = await supabase.auth.updateUser(
+      { email: newEmail },
+      {
+        // Ca la signUp: linkul de confirmare se întoarce la site-ul curent.
+        emailRedirectTo:
+          typeof window !== "undefined" ? `${window.location.origin}/settings` : undefined,
+      },
+    )
+    if (error) throw new Error(error.message)
+  }
+
+  async function updatePassword(currentPassword: string, newPassword: string) {
+    const email = session?.user.email
+    if (!email) throw new Error("You need to be signed in to change your password.")
+
+    // Re-autentificare cu parola curentă: Supabase n-o cere singur la updateUser.
+    const { error: authError } = await supabase.auth.signInWithPassword({
+      email,
+      password: currentPassword,
+    })
+    if (authError) throw new Error("Current password is incorrect.")
+
+    const { error } = await supabase.auth.updateUser({ password: newPassword })
+    if (error) throw new Error(error.message)
+  }
+
   async function deleteAccount() {
+    // Imaginile din Storage ÎNTÂI: RPC-ul șterge contul, iar după aceea nu mai
+    // avem sesiune cu care să le putem șterge — ar rămâne acolo pe veci, deși
+    // contul care le-a încărcat nu mai există.
+    await deleteAllMyImages()
+
     // RPC-ul (SECURITY DEFINER) șterge rândul din auth.users; cascadele curăță
     // tot conținutul. Vezi migrations/004_delete_user_rpc.sql.
     const { error } = await supabase.rpc("delete_user")
@@ -115,6 +159,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signIn,
         signUp,
         signOut,
+        updateEmail,
+        updatePassword,
         deleteAccount,
       }}
     >

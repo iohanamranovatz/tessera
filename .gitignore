@@ -13,3 +13,9 @@ __v0_jsx-dev-runtime.ts
 node_modules
 .next/
 .DS_Store
+
+# Python / Selenium e2e tests
+__pycache__/
+*.py[cod]
+.pytest_cache/
+tests/e2e/.venv/
